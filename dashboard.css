@@ -75,8 +75,16 @@ sl-icon { font-size: 18px; }
 #syncNowBtn sl-icon { font-size: 15px; }
 
 /* ---- Page headers ---- */
-.page-header { margin-bottom: 26px; }
-.page-header h1 { margin: 0 0 4px; font-size: 25px; font-weight: 700; letter-spacing: -0.015em; }
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -36px -44px 28px;
+  padding: 26px 44px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.page-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
 .page-subtitle { margin: 0; color: var(--muted); font-size: 14px; }
 
 /* ---- Cards, globally (Shoelace sl-card) ---- */
@@ -121,10 +129,25 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 .queue-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 18px;
+  gap: 28px 18px;
 }
 
-.queue-grid .queue-item::part(base) { background: var(--surface); border-color: var(--border); overflow: hidden; }
+.queue-grid .queue-item {
+  position: relative;
+  transition: transform .28s cubic-bezier(.25, .8, .25, 1);
+}
+.queue-grid .queue-item:hover { transform: scale(1.08); z-index: 5; }
+
+.queue-grid .queue-item::part(base) {
+  background: var(--surface);
+  border-color: var(--border);
+  overflow: hidden;
+  transition: box-shadow .28s ease, border-color .28s ease;
+}
+.queue-grid .queue-item:hover::part(base) {
+  border-color: var(--accent);
+  box-shadow: 0 14px 32px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.35);
+}
 .queue-grid .queue-item::part(body) { padding: 0; display: block; }
 
 .qi-media { position: relative; aspect-ratio: 16/9; background: var(--surface-2); }
@@ -152,7 +175,7 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
   transition: opacity .15s ease, transform .15s ease;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
 }
-.qi-play:hover sl-icon, .qi-play:focus-visible sl-icon { opacity: 1; transform: scale(1); }
+.queue-item:hover .qi-play sl-icon, .qi-play:focus-visible sl-icon { opacity: 1; transform: scale(1); }
 
 .qi-info { padding: 14px 16px 16px; }
 .qi-info h4 {

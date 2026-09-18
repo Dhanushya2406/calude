@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Snackable",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Auto-pulls your YouTube Watch Later queue into an intentional watch list with notes, highlights, and analytics.",
   "permissions": ["storage", "unlimitedStorage", "alarms", "tabs", "scripting", "declarativeNetRequest"],
   "host_permissions": ["https://www.youtube.com/*", "https://www.youtube-nocookie.com/*"],
