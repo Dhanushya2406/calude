@@ -25,48 +25,80 @@ body {
 
 sl-icon { font-size: 18px; }
 
-.app { display: flex; flex-direction: column; height: 100vh; }
+.app { display: flex; height: 100vh; }
 
-/* ---- Breadcrumb bar (identity row, above the tabs) ---- */
-.breadcrumb-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 64px;
-  padding: 10px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+/* ---- Sidebar (sl-tab-group placement="start") ----
+   .sidebar-brand and .sidebar-footer are slotted into "nav" alongside the
+   real <sl-tab> elements so they stack in one visual column (Shoelace's
+   nav slot just renders whatever's given it) — but Shoelace's own
+   getAllTabs() does `slot.assignedElements()` with NO tag-name filtering,
+   so without help these two would be treated as phantom tabs by its
+   keyboard-nav indexing (findNextFocusableTab, Home/End) the same way an
+   earlier version of the custom tab-indicator was. Fixed at the source
+   this time: dashboard.js sets `.disabled = true` (a plain JS property,
+   Shoelace's own filter is `!el.disabled`) on both right after load, so
+   Shoelace's internal walks skip them like any disabled tab would. */
+.main-tabs { flex: 1; }
+.main-tabs::part(base) { height: 100vh; }
+.main-tabs::part(nav) {
+  width: 220px;
   flex-shrink: 0;
+  background: linear-gradient(180deg, #241f18 0%, var(--surface) 45%, var(--bg) 100%);
+  border-right: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
-#syncNowBtn sl-icon { font-size: 15px; }
+.main-tabs::part(tabs) { flex: 1; display: flex; flex-direction: column; padding: 4px 12px; gap: 3px; position: relative; }
+.main-tabs::part(body) { flex: 1; overflow-y: auto; padding: 36px 44px; }
 
-/* ---- Brand ribbon: a curved, layered banner draped over the top-left
-   of the breadcrumb bar — modeled on a reference screenshot of a status
-   banner with a concave-curved bottom edge that visibly overlaps the
-   plain bar beneath it, casting a shape-following shadow (a plain
-   box-shadow can't do that on a non-rectangular shape, hence the SVG
-   drop-shadow filter rather than a CSS shadow on a div). Purely
-   decorative — carries Snackable's own brand, not a real status. ---- */
-.brand-ribbon {
-  position: absolute;
-  top: 0;
+/* Shoelace's built-in active-tab-indicator is off — a fully custom one is
+   used instead (#tabIndicator/moveTabIndicator in dashboard.js). It's
+   position: fixed and lives as a plain sibling of sl-tab-group (not
+   slotted), for the same phantom-tab reason as above, and because
+   getBoundingClientRect() (which it uses to measure the active tab)
+   returns viewport coordinates regardless — fixed positioning means no
+   wrapper/ancestor math is needed to place it. */
+.main-tabs::part(active-tab-indicator) { display: none; }
+
+.tab-indicator {
+  position: fixed;
   left: 0;
-  width: 260px;
-  height: 64px;
-  z-index: 2;
+  top: 0;
+  width: 3px;
+  height: 0;
+  background: var(--accent);
+  border-radius: 3px;
+  pointer-events: none;
+  transform: translateY(0);
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1), height .5s cubic-bezier(.16, 1, .3, 1);
 }
+@media (prefers-reduced-motion: reduce) {
+  .tab-indicator { transition: none; }
+}
+
+/* ---- Brand ribbon (in the sidebar's top slot) — a curved, layered
+   banner modeled on a reference screenshot of a status banner: concave
+   bottom edge, drop-shadowed above the plain sidebar beneath it (a plain
+   box-shadow can't follow a non-rectangular shape, hence the SVG-level
+   drop-shadow filter). Purely decorative — carries Snackable's own
+   brand, not a real status. ---- */
+.sidebar-brand { position: relative; height: 70px; flex-shrink: 0; }
 .brand-ribbon-shape {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .5));
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, .5));
 }
 .brand-ribbon-shape path { fill: #0d0b08; }
 .brand-ribbon-content {
   position: absolute;
-  top: 15px;
-  left: 20px;
+  top: 16px;
+  left: 18px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -86,42 +118,39 @@ sl-icon { font-size: 18px; }
 }
 .brand-ribbon-text { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
 
-/* ---- Tabs (sl-tab-group placement="top") ---- */
-.tabs-wrap { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.main-tabs { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.main-tabs::part(base) { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.main-tabs::part(nav) { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; flex-shrink: 0; }
-.main-tabs::part(tabs) { gap: 22px; }
-.main-tabs::part(body) { flex: 1; overflow-y: auto; padding: 36px 44px; }
+.sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+.sidebar-footer sl-button { width: 100%; }
 
-/* Shoelace's built-in active-tab-indicator is turned off entirely — this
-   is a fully custom indicator instead (see #tabIndicator/moveTabIndicator
-   in dashboard.js), a single absolutely-positioned element that's measured
-   against the active <sl-tab> and animated via transform+width, never
-   recreated per tab. It deliberately lives OUTSIDE sl-tab-group's light
-   DOM (as a sibling in .tabs-wrap, not slot="nav") — Shoelace's own
-   getAllTabs() does `slot.assignedElements()` with no tag-name filtering,
-   so anything slotted into "nav" gets treated as a phantom tab by its
-   internal keyboard-navigation indexing (this bit us once: an earlier
-   version slotted the indicator into "nav", which worked visually but
-   quietly corrupted arrow-key tab navigation). getBoundingClientRect() is
-   used instead of offsetLeft/offsetWidth so position is computed correctly
-   despite the indicator now living outside the component's shadow-DOM
-   layout context. */
-.main-tabs::part(active-tab-indicator) { display: none; }
-
-.tab-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 2px;
-  width: 0;
-  background: var(--accent);
-  border-radius: 2px;
-  pointer-events: none;
-  transform: translateX(0);
-  transition: transform .5s cubic-bezier(.16, 1, .3, 1), width .5s cubic-bezier(.16, 1, .3, 1);
+.main-tabs sl-tab { width: 100%; }
+.main-tabs sl-tab::part(base) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 9px;
+  transition: background .22s ease, color .22s ease;
 }
+.main-tabs sl-tab::part(base):hover { background: var(--surface-2); color: var(--text); }
+.main-tabs sl-tab[active]::part(base) { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.nav-icon {
+  margin-right: 10px;
+  font-size: 16px;
+  vertical-align: -3px;
+  padding: 5px;
+  border-radius: 7px;
+  background: transparent;
+  transition: background .22s ease, transform .22s ease;
+}
+.main-tabs sl-tab[active] .nav-icon {
+  background: var(--accent);
+  color: var(--bg);
+  transform: scale(1.05);
+}
+#syncNowBtn sl-icon { font-size: 15px; }
 @media (prefers-reduced-motion: reduce) {
   .tab-indicator { transition: none; }
 }
@@ -199,7 +228,7 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 .queue-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 28px 18px;
+  gap: 40px 22px;
 }
 
 .queue-grid .queue-item {
@@ -207,21 +236,25 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
   cursor: pointer;
   will-change: transform;
   transform: translateZ(0) scale(1);
-  transition: transform .2s cubic-bezier(.22, .61, .36, 1);
+  transition: transform .4s cubic-bezier(.16, 1, .3, 1);
 }
 .queue-grid .queue-item:hover,
-.queue-grid .queue-item:focus-visible { transform: translateZ(0) scale(1.035); z-index: 5; outline: none; }
+.queue-grid .queue-item:focus-visible { transform: translateZ(0) scale(1.09); z-index: 5; outline: none; }
 
 .queue-grid .queue-item::part(base) {
   background: var(--surface);
   border-color: var(--border);
   overflow: hidden;
-  transition: box-shadow .2s ease, border-color .2s ease;
+  transition: box-shadow .4s cubic-bezier(.16, 1, .3, 1), border-color .4s cubic-bezier(.16, 1, .3, 1);
 }
 .queue-grid .queue-item:hover::part(base),
 .queue-grid .queue-item:focus-visible::part(base) {
   border-color: var(--accent);
-  box-shadow: 0 10px 26px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  box-shadow: 0 18px 40px rgba(0,0,0,.5), 0 6px 16px rgba(0,0,0,.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .queue-grid .queue-item,
+  .queue-grid .queue-item::part(base) { transition: none; }
 }
 .queue-grid .queue-item::part(body) { padding: 0; display: block; }
 

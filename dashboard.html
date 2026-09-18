@@ -11,24 +11,23 @@
 </head>
 <body>
   <div class="app">
-    <div class="breadcrumb-bar">
-      <div class="brand-ribbon">
-        <svg class="brand-ribbon-shape" viewBox="0 0 260 64" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0,0 H260 V14 C190,60 90,64 0,50 Z"></path>
+    <sl-tab-group id="mainTabs" class="main-tabs" placement="start">
+      <div slot="nav" id="sidebarBrand" class="sidebar-brand">
+        <svg class="brand-ribbon-shape" viewBox="0 0 220 70" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,0 H220 V16 C160,65 80,70 0,54 Z"></path>
         </svg>
         <div class="brand-ribbon-content">
           <sl-icon src="icons/ui/popcorn.svg" class="brand-ribbon-icon"></sl-icon>
           <span class="brand-ribbon-text">Snackable</span>
         </div>
       </div>
-      <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
-    </div>
-    <div class="tabs-wrap">
-    <sl-tab-group id="mainTabs" class="main-tabs" placement="top">
-      <sl-tab slot="nav" panel="queue">Queue</sl-tab>
-      <sl-tab slot="nav" panel="watch">Watch</sl-tab>
-      <sl-tab slot="nav" panel="history">History</sl-tab>
-      <sl-tab slot="nav" panel="analytics">Analytics</sl-tab>
+      <sl-tab slot="nav" panel="queue"><sl-icon src="icons/ui/inbox.svg" class="nav-icon"></sl-icon> Queue</sl-tab>
+      <sl-tab slot="nav" panel="watch"><sl-icon src="icons/ui/circle-play.svg" class="nav-icon"></sl-icon> Watch</sl-tab>
+      <sl-tab slot="nav" panel="history"><sl-icon src="icons/ui/list-checks.svg" class="nav-icon"></sl-icon> History</sl-tab>
+      <sl-tab slot="nav" panel="analytics"><sl-icon src="icons/ui/chart-column.svg" class="nav-icon"></sl-icon> Analytics</sl-tab>
+      <div slot="nav" id="sidebarFooter" class="sidebar-footer">
+        <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
+      </div>
 
       <sl-tab-panel name="queue">
         <div class="page-header">
@@ -111,9 +110,8 @@
       </sl-tab-panel>
     </sl-tab-group>
     <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
-    </div>
 
-    <div class="version-footer">v2.3.1 · fixed sticky header ghosting</div>
+    <div class="version-footer">v2.4.0 · sidebar nav restored</div>
   </div>
 
   <script src="dashboard.js"></script>

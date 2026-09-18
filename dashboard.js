@@ -26,30 +26,33 @@ let pendingErrorTimer = null;
 // ---------- Tabs ----------
 const mainTabs = document.getElementById("mainTabs");
 const tabIndicator = document.getElementById("tabIndicator");
-const tabsWrap = document.querySelector(".tabs-wrap");
+
+// .sidebar-brand and .sidebar-footer are slotted into "nav" alongside the
+// real <sl-tab> elements so they stack in one visual column — but
+// Shoelace's getAllTabs() does `slot.assignedElements()` with NO
+// tag-name filtering, so without this they'd be walked as phantom tabs
+// by its own keyboard-nav indexing (findNextFocusableTab filters on
+// `!el.disabled`, and Home/End index into that same filtered list).
+// Setting the plain JS property here (not an HTML attribute, no visual
+// effect on a div) makes Shoelace's own filter exclude them correctly.
+document.getElementById("sidebarBrand").disabled = true;
+document.getElementById("sidebarFooter").disabled = true;
 
 // Custom tab indicator — a single element, never recreated, moved by
-// measuring the active <sl-tab> and animating transform/width via CSS
+// measuring the active <sl-tab> and animating transform/height via CSS
 // (see .tab-indicator). Shoelace's own built-in indicator is turned off
 // (display: none) in favor of this.
 //
-// It lives OUTSIDE sl-tab-group's light DOM (a sibling in .tabs-wrap),
-// deliberately NOT slot="nav" — Shoelace's getAllTabs() does
-// `slot.assignedElements()` with no tag-name filtering, so anything
-// slotted into "nav" is treated as a phantom tab by its own keyboard-nav
-// indexing. An earlier version slotted the indicator into "nav" and that
-// silently broke arrow-key tab navigation while looking fine visually.
-// Because it's now outside the component, getBoundingClientRect() (works
-// across shadow boundaries) is used instead of offsetLeft/offsetWidth
-// (which would resolve against the wrong positioned ancestor from here).
+// It's position: fixed and lives as a plain sibling of sl-tab-group, NOT
+// slot="nav" (same phantom-tab reason as above). getBoundingClientRect()
+// returns viewport coordinates, which line up directly with `fixed`
+// positioning — no wrapper/ancestor math needed.
 function moveTabIndicator() {
   const activeTab = mainTabs.querySelector("sl-tab[active]");
-  if (!activeTab || !tabIndicator || !tabsWrap) return;
+  if (!activeTab || !tabIndicator) return;
   const tabRect = activeTab.getBoundingClientRect();
-  const wrapRect = tabsWrap.getBoundingClientRect();
-  tabIndicator.style.width = `${tabRect.width}px`;
-  tabIndicator.style.top = `${tabRect.bottom - wrapRect.top}px`;
-  tabIndicator.style.transform = `translateX(${tabRect.left - wrapRect.left}px)`;
+  tabIndicator.style.height = `${tabRect.height}px`;
+  tabIndicator.style.transform = `translateY(${tabRect.top}px)`;
 }
 
 mainTabs.addEventListener("sl-tab-show", (e) => {
