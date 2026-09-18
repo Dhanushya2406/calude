@@ -33,7 +33,7 @@
   --sl-color-warning-500: #d4a04a;
   --sl-color-warning-600: #ddb066;
 
-  --sl-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --sl-border-radius-medium: 10px;
   --sl-border-radius-large: 14px;
   --sl-input-border-color: var(--sl-color-neutral-200);

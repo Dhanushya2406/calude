@@ -77,10 +77,16 @@ analyticsTotals: { [category]: totalSeconds }
 - P1 (done): ~~Watch log UI~~ — implemented in v1.3 as the History tab
 - P0 (new, higher priority than anything below): Fix cross-device sync — see Known Issue
 - P2 (done): ~~Chapter markers~~ — implemented in v1.5.0, scraped from watch-page JSON rather than the postMessage API (that channel doesn't actually expose them)
-- P2: Extend the Shoelace component redesign to Queue/History/Analytics (only the Watch tab's Notes/Highlights got it in v1.5.0)
+- P2 (done): ~~Extend the Shoelace component redesign to Queue/History/Analytics~~ — v1.6.0, then a real visual pass (sidebar, stat cards, shadows) in v1.7.0
 - P2: Queue health score (nudge to prune stale unwatched videos)
 - P2: Insight surfacing (patterns across notes/categories over time)
 - Mobile-viewable dashboard (open question — no solution decided yet)
+
+### v1.7.1 — real icons, real typeface, an a11y fix
+- **Icons**: the emoji icon set from v1.7.0 wasn't good enough. Replaced with [Lucide](https://lucide.dev) (ISC licensed, same permissive spirit as MIT) — vendored as individual raw SVG files in `icons/ui/` (popcorn, inbox, circle-play, list-checks, chart-column, refresh-cw, circle-check-big, clock, notebook-pen, sparkles — fetched directly from Lucide's GitHub repo, not a CDN), rendered via Shoelace's `<sl-icon src="icons/ui/name.svg">` rather than the full default icon library (which would've meant vendoring ~8.4MB of icons we don't need). Each SVG uses `stroke="currentColor"`, so icon color follows the surrounding CSS `color` like text does.
+- **Font**: DM Sans, self-hosted (not a live Google Fonts dependency) at `fonts/dm-sans/` — two variable-font woff2 files (latin + latin-ext, pulled once via Google's CSS2 API) plus `dm-sans.css` with the `@font-face` rules. Both `dashboard.css`'s `body` and `shoelace-theme.css`'s `--sl-font-sans` token needed updating — Shoelace components use the token internally, not the inherited body font-family, so changing only one of the two silently misses all Shoelace-rendered text (buttons, tabs, cards, badges).
+- **Fixed a real a11y bug**, not just noise: Chrome was warning `aria-hidden` was set on a tab-panel that still contained a focused element. Cause: clicking "Watch" or "Mark as watched" calls `mainTabs.show(...)` immediately, while the just-clicked button (inside the panel about to become `aria-hidden`) still has DOM focus. Fixed by calling `document.activeElement?.blur()` right before both `mainTabs.show(...)` calls.
+- **Not bugs, safe to ignore**: `ERR_BLOCKED_BY_CLIENT` on `doubleclick.net`/`youtube.com/generate_204`/`youtubei/v1/log_event`, and a CORS error on `googleads.g.doubleclick.net/pagead/viewthroughconversion` — these are the browser's own ad blocker (if one is installed) blocking YouTube's ad/conversion-tracking calls from inside their player. Nothing in Snackable's code causes or can meaningfully change this.
 
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra

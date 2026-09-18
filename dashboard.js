@@ -32,12 +32,12 @@ mainTabs.addEventListener("sl-tab-show", (e) => {
 
 document.getElementById("syncNowBtn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
-  const original = btn.textContent;
+  const label = document.getElementById("syncBtnLabel");
   btn.loading = true;
-  btn.textContent = "Syncing…";
+  label.textContent = "Syncing…";
   await chrome.runtime.sendMessage({ type: "SNACKABLE_SYNC_NOW" });
   btn.loading = false;
-  btn.textContent = original;
+  label.textContent = "Sync now";
   renderQueue();
   renderStats();
 });
@@ -64,17 +64,17 @@ async function renderStats() {
   const highlightCount = Object.values(highlights).reduce((a, list) => a + list.length, 0);
 
   const stats = [
-    { icon: "📥", label: "In queue", value: String(queueCount) },
-    { icon: "✅", label: "Watched", value: String(watchedCount) },
-    { icon: "⏱", label: "Hours consumed", value: totalHours.toFixed(1) },
-    { icon: "📝", label: "Notes captured", value: String(noteCount + highlightCount) },
+    { icon: "inbox", label: "In queue", value: String(queueCount) },
+    { icon: "circle-check-big", label: "Watched", value: String(watchedCount) },
+    { icon: "clock", label: "Hours consumed", value: totalHours.toFixed(1) },
+    { icon: "notebook-pen", label: "Notes captured", value: String(noteCount + highlightCount) },
   ];
 
   row.innerHTML = stats
     .map(
       (s) => `
       <sl-card class="stat-card">
-        <div class="stat-icon">${s.icon}</div>
+        <div class="stat-icon"><sl-icon src="icons/ui/${s.icon}.svg"></sl-icon></div>
         <div class="stat-body">
           <div class="stat-value">${s.value}</div>
           <div class="stat-label">${s.label}</div>
@@ -210,6 +210,10 @@ function openWatch(video) {
   clearTimeout(pendingErrorTimer);
   pendingErrorTimer = null;
 
+  // Avoid Chrome's "aria-hidden on an element containing focus" warning:
+  // the button that triggered this is still focused when the queue/history
+  // panel becomes aria-hidden a moment later.
+  document.activeElement?.blur();
   mainTabs.show("watch");
   document.getElementById("watchEmpty").style.display = "none";
   document.getElementById("watchActive").style.display = "flex";
@@ -391,6 +395,7 @@ document.getElementById("markWatchedBtn").addEventListener("click", async () => 
   currentVideo = null;
   document.getElementById("watchActive").style.display = "none";
   document.getElementById("watchEmpty").style.display = "block";
+  document.activeElement?.blur();
   mainTabs.show("queue");
 });
 

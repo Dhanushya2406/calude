@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <title>Snackable</title>
 <link rel="stylesheet" href="vendor/shoelace/themes/dark.css" />
+<link rel="stylesheet" href="fonts/dm-sans/dm-sans.css" />
 <link rel="stylesheet" href="shoelace-theme.css" />
 <link rel="stylesheet" href="dashboard.css" />
 <script type="module" src="/vendor/shoelace/shoelace-autoloader.js"></script>
@@ -12,15 +13,15 @@
   <div class="app">
     <sl-tab-group id="mainTabs" class="main-tabs" placement="start">
       <div slot="nav" class="sidebar-brand">
-        <span class="sidebar-brand-icon">🍿</span>
+        <sl-icon src="icons/ui/popcorn.svg" class="sidebar-brand-icon"></sl-icon>
         <span class="sidebar-brand-name">Snackable</span>
       </div>
-      <sl-tab slot="nav" panel="queue"><span class="nav-icon">📥</span> Queue</sl-tab>
-      <sl-tab slot="nav" panel="watch"><span class="nav-icon">▶️</span> Watch</sl-tab>
-      <sl-tab slot="nav" panel="history"><span class="nav-icon">🕐</span> History</sl-tab>
-      <sl-tab slot="nav" panel="analytics"><span class="nav-icon">📊</span> Analytics</sl-tab>
+      <sl-tab slot="nav" panel="queue"><sl-icon src="icons/ui/inbox.svg" class="nav-icon"></sl-icon> Queue</sl-tab>
+      <sl-tab slot="nav" panel="watch"><sl-icon src="icons/ui/circle-play.svg" class="nav-icon"></sl-icon> Watch</sl-tab>
+      <sl-tab slot="nav" panel="history"><sl-icon src="icons/ui/list-checks.svg" class="nav-icon"></sl-icon> History</sl-tab>
+      <sl-tab slot="nav" panel="analytics"><sl-icon src="icons/ui/chart-column.svg" class="nav-icon"></sl-icon> Analytics</sl-tab>
       <div slot="nav" class="sidebar-footer">
-        <sl-button id="syncNowBtn" size="small">↻ Sync now</sl-button>
+        <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
       </div>
 
       <sl-tab-panel name="queue">
@@ -106,7 +107,7 @@
       </sl-tab-panel>
     </sl-tab-group>
 
-    <div class="version-footer">v1.7.0 · sidebar redesign</div>
+    <div class="version-footer">v1.7.1 · Lucide icons + DM Sans</div>
   </div>
 
   <script src="dashboard.js"></script>
