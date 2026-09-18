@@ -33,16 +33,22 @@ sl-icon { font-size: 18px; }
 .main-tabs::part(nav) {
   width: 220px;
   flex-shrink: 0;
-  background: var(--surface);
+  background: linear-gradient(180deg, #241f18 0%, var(--surface) 45%, var(--bg) 100%);
   border-right: 1px solid var(--border);
   border-bottom: none;
   padding: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
-.main-tabs::part(tabs) { flex: 1; display: flex; flex-direction: column; padding: 4px 12px; gap: 2px; }
+.main-tabs::part(tabs) { flex: 1; display: flex; flex-direction: column; padding: 4px 12px; gap: 3px; position: relative; }
 .main-tabs::part(body) { flex: 1; overflow-y: auto; padding: 36px 44px; }
-.main-tabs::part(active-tab-indicator) { display: none; }
+.main-tabs::part(active-tab-indicator) {
+  background: var(--accent);
+  width: 3px;
+  border-radius: 3px;
+  transition: translate .32s cubic-bezier(.65, 0, .35, 1), transform .32s cubic-bezier(.65, 0, .35, 1), height .32s cubic-bezier(.65, 0, .35, 1);
+}
 
 .sidebar-brand {
   display: flex;
@@ -66,12 +72,27 @@ sl-icon { font-size: 18px; }
   color: var(--muted);
   font-size: 14px;
   font-weight: 500;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 9px;
+  transition: background .22s ease, color .22s ease;
 }
 .main-tabs sl-tab::part(base):hover { background: var(--surface-2); color: var(--text); }
 .main-tabs sl-tab[active]::part(base) { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.nav-icon { margin-right: 10px; font-size: 16px; vertical-align: -3px; }
+
+.nav-icon {
+  margin-right: 10px;
+  font-size: 16px;
+  vertical-align: -3px;
+  padding: 5px;
+  border-radius: 7px;
+  background: transparent;
+  transition: background .22s ease, transform .22s ease;
+}
+.main-tabs sl-tab[active] .nav-icon {
+  background: var(--accent);
+  color: var(--bg);
+  transform: scale(1.05);
+}
 #syncNowBtn sl-icon { font-size: 15px; }
 
 /* ---- Page headers ---- */
