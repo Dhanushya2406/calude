@@ -139,7 +139,7 @@ async function renderQueue() {
   list.innerHTML = shown
     .map((v) => {
       const embedBadge = v.embeddable === false
-        ? `<sl-badge variant="warning" pill title="Embedding disabled by creator">⊘ No embed</sl-badge>`
+        ? `<sl-badge variant="warning" pill class="qi-embed-badge" title="Embedding disabled by creator">⊘ No embed</sl-badge>`
         : "";
       const durLabel = v.durationSec
         ? `<span class="duration-label">${formatDuration(v.durationSec)}</span>`
@@ -147,19 +147,21 @@ async function renderQueue() {
 
       return `
         <sl-card class="queue-item">
-          <div class="thumb-wrap">
+          <div class="qi-media">
             <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
-            ${durLabel}
-          </div>
-          <div class="queue-item-info">
-            <h4>${escapeHtml(v.title)}</h4>
-            <span class="muted">${escapeHtml(v.channel)}</span>
             ${embedBadge}
+            ${durLabel}
+            <button class="qi-play" data-id="${v.id}" aria-label="Watch">
+              <sl-icon src="icons/ui/circle-play.svg"></sl-icon>
+            </button>
           </div>
-          <sl-select data-id="${v.id}" size="small" value="${escapeHtml(v.category)}" class="category-select">
-            ${CATEGORIES.map((c) => `<sl-option value="${escapeHtml(c)}">${escapeHtml(c)}</sl-option>`).join("")}
-          </sl-select>
-          <sl-button data-id="${v.id}" variant="primary" size="small" class="watch-btn">Watch</sl-button>
+          <div class="qi-info">
+            <h4>${escapeHtml(v.title)}</h4>
+            <span class="qi-channel">${escapeHtml(v.channel)}</span>
+            <sl-select data-id="${v.id}" size="small" value="${escapeHtml(v.category)}" class="category-select">
+              ${CATEGORIES.map((c) => `<sl-option value="${escapeHtml(c)}">${escapeHtml(c)}</sl-option>`).join("")}
+            </sl-select>
+          </div>
         </sl-card>`;
     })
     .join("");
@@ -173,7 +175,7 @@ async function renderQueue() {
     });
   });
 
-  list.querySelectorAll(".watch-btn").forEach((btn) => {
+  list.querySelectorAll(".qi-play").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const { queue = [] } = await chrome.storage.local.get("queue");
       const v = queue.find((x) => x.id === btn.dataset.id);

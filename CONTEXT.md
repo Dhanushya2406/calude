@@ -88,6 +88,13 @@ analyticsTotals: { [category]: totalSeconds }
 - **Fixed a real a11y bug**, not just noise: Chrome was warning `aria-hidden` was set on a tab-panel that still contained a focused element. Cause: clicking "Watch" or "Mark as watched" calls `mainTabs.show(...)` immediately, while the just-clicked button (inside the panel about to become `aria-hidden`) still has DOM focus. Fixed by calling `document.activeElement?.blur()` right before both `mainTabs.show(...)` calls.
 - **Not bugs, safe to ignore**: `ERR_BLOCKED_BY_CLIENT` on `doubleclick.net`/`youtube.com/generate_204`/`youtubei/v1/log_event`, and a CORS error on `googleads.g.doubleclick.net/pagead/viewthroughconversion` — these are the browser's own ad blocker (if one is installed) blocking YouTube's ad/conversion-tracking calls from inside their player. Nothing in Snackable's code causes or can meaningfully change this.
 
+### v1.8.0 — Queue as a card grid
+Queue moved from a row list to a card grid (`.queue-grid` in dashboard.html/css), matching a reference screenshot: thumbnail fills the top of each card edge-to-edge, a white (not dark-themed) info panel sits below it with a bold title and muted subtitle, deliberately breaking from the app's dark theme *on this one element* for contrast — same pattern as notification-style cards in consumer fintech apps. A `<button class="qi-play">` overlays the thumbnail (icon fades in on hover) as the click-to-watch target, replacing the separate "Watch" button; the category `<sl-select>` moved into the white footer and got its `combobox`/`display-input` parts re-themed light to match, since the rest of Shoelace still runs dark globally (the select's popup listbox itself stays dark-themed — a Shoelace app-wide setting, not overridable per-instance without more work than this was worth).
+
+**History intentionally still uses the old row-list layout** (`.queue-list`/`.queue-item` — not touched), a different visual language from Queue's cards. Same underlying `sl-card` class name serves both; the card-grid-specific rules are scoped with a `.queue-grid` ancestor selector so they only apply to Queue.
+
+**Pitfall avoided, worth knowing for next time:** the new `.qi-play` overlay button shared a class with the old generic `.watch-btn` rule (background/padding/color for the plain-element Watch-tab fallback buttons). Since both were single-class selectors, whichever rule appeared later in dashboard.css would silently win per-property in the cascade — checked source order before shipping and renamed rather than assuming it'd be fine.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
