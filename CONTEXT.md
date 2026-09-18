@@ -161,6 +161,9 @@ Implementation: `.brand-ribbon` — an inline SVG (`viewBox="0 0 260 64"`) with 
 
 Curve values (`H260 V14 C190,60 90,64 0,50`) are a best-effort approximation from a cropped screenshot, not a pixel-measured trace — expect to retune the control points once actually seen rendered.
 
+### v2.3.1 — sticky header ghosting on scroll
+Reported: scrolling Queue showed the stat-row cards faintly bleeding through *above* the sticky "Queue" header, instead of being cleanly hidden beneath it. `.page-header`'s background was already a fully opaque solid color, so this wasn't a transparency bug — it's a known Chromium rendering artifact where a `position: sticky` element without its own compositor layer can fail to fully repaint what should be occluded beneath it during scroll. Fixed with `transform: translateZ(0)` (forces its own GPU layer) plus `isolation: isolate` (a clean stacking context) on `.page-header`. Same class of fix as the `will-change: transform` already used on Queue's card hover — general pattern worth remembering for any other sticky/scrolling element built later.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute

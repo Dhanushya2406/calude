@@ -145,6 +145,13 @@ sl-icon { font-size: 18px; }
   padding: 26px 44px 20px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  /* Chrome ghosting fix: a sticky element with no compositor layer of its
+     own can fail to fully repaint content scrolling underneath it,
+     letting it show through semi-transparently. Forcing this onto its
+     own GPU layer (and isolating its stacking context) makes the browser
+     always treat it as fully opaque during scroll compositing. */
+  transform: translateZ(0);
+  isolation: isolate;
 }
 .page-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
 .page-subtitle { margin: 0; color: var(--muted); font-size: 14px; }
