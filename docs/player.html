@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Snackable player relay</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
+</style>
+</head>
+<body>
+<!--
+  Snackable's Chrome extension can't embed YouTube directly: chrome-extension://
+  origins don't send a Referer header and appear to be rejected by YouTube's
+  player-config check (seen as "This video is unavailable — Error code: 152").
+  This page exists purely to sit on a real https:// origin so the YouTube
+  embed below behaves like a normal website embed, and to relay postMessage
+  traffic between the extension (its parent) and the actual YouTube iframe.
+  No data is stored or read here — it's a stateless message pipe.
+-->
+<iframe id="yt" allow="autoplay; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<script>
+  const YT_ORIGIN = "https://www.youtube-nocookie.com";
+  const params = new URLSearchParams(location.search);
+  const videoId = params.get("v");
+  const frame = document.getElementById("yt");
+
+  if (videoId) {
+    frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(videoId)}?enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source === frame.contentWindow) {
+      // From YouTube -> forward up to whichever page embedded us.
+      if (window.parent !== window) window.parent.postMessage(event.data, "*");
+      return;
+    }
+    if (window.parent !== window && event.source === window.parent) {
+      // From the embedding page -> forward down to YouTube.
+      frame.contentWindow?.postMessage(event.data, YT_ORIGIN);
+    }
+  });
+</script>
+</body>
+</html>
