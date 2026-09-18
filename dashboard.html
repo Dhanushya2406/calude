@@ -18,12 +18,12 @@
       </div>
       <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
     </div>
+    <div class="tabs-wrap">
     <sl-tab-group id="mainTabs" class="main-tabs" placement="top">
       <sl-tab slot="nav" panel="queue">Queue</sl-tab>
       <sl-tab slot="nav" panel="watch">Watch</sl-tab>
       <sl-tab slot="nav" panel="history">History</sl-tab>
       <sl-tab slot="nav" panel="analytics">Analytics</sl-tab>
-      <div slot="nav" id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
 
       <sl-tab-panel name="queue">
         <div class="page-header">
@@ -105,8 +105,10 @@
         <div id="analyticsBars" class="analytics-bars"></div>
       </sl-tab-panel>
     </sl-tab-group>
+    <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
+    </div>
 
-    <div class="version-footer">v2.1.0 · custom sliding tab indicator</div>
+    <div class="version-footer">v2.2.0 · robust focus-before-hide, unpolluted tab list</div>
   </div>
 
   <script src="dashboard.js"></script>

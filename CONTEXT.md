@@ -144,6 +144,16 @@ v2.0.1/v2.0.2 tuned Shoelace's built-in `active-tab-indicator` (correct custom p
 - Initial placement covered by a double `requestAnimationFrame` (sl-tab needs to upgrade and lay out first — its `offsetWidth` is 0/wrong before that) plus a `document.fonts.ready` re-measure (DM Sans loading late can shift tab widths after the first measurement) and a `resize` listener.
 - `.5s cubic-bezier(.16, 1, .3, 1)` — a springy-but-controlled ease-out, within the requested 400–600ms range.
 
+### v2.2.0 — actually root-caused the aria-hidden warning, and fixed the indicator's tab-list pollution
+Told to stop patching call sites and inspect the real mechanism. Read Shoelace's actual source instead of guessing:
+
+- **`setActiveTab()`** (`vendor/shoelace/chunks/chunk.PKRKD3AZ.js`) never calls `.blur()` on anything, ever. It only flips `active`/`tabIndex` on tabs and `active` on panels, then emits `sl-tab-hide`/`sl-tab-show`. Focus management during a tab switch is **entirely** the consumer's responsibility — Shoelace provides no default.
+- **`sl-tab-panel`'s `active` → `aria-hidden` reflection** (`chunk.GMWHDCZQ.js`) goes through Shoelace's `watch()` decorator, which hooks Lit's `update(changedProps)` lifecycle — meaning the actual `aria-hidden` DOM attribute change is deferred to the **next microtask**, not applied synchronously when `.active` is set.
+- Consequence: `sl-tab-hide` fires *synchronously*, inside the same call stack as `setActiveTab()`, strictly before that microtask runs. Blurring **inside the `sl-tab-hide` handler** is therefore guaranteed to land before `aria-hidden` is actually applied — a real, timing-proof fix rather than a hope.
+- Replaced the two scattered, incomplete `blur()` calls (`openWatch()`, `markWatchedBtn`) with one handler: `mainTabs.addEventListener("sl-tab-hide", ...)` checks whether `document.activeElement` is contained in the panel being hidden and blurs it if so. This covers every path that can hide a panel — native tab clicks, keyboard arrow navigation, and programmatic `mainTabs.show()` — through the one mechanism Shoelace itself uses internally, where the old per-call-site approach only covered the two programmatic paths and **completely missed native tab clicks**.
+
+**Also fixed, per the request to check whether the custom indicator was interfering with Shoelace's own focus management**: it was, structurally, even if not the direct cause of this specific warning. `getAllTabs()` does `slot.assignedElements()` with **no tag-name filtering** — the v2.1.0 indicator was `slot="nav"`, so Shoelace's own keyboard-navigation indexing (`this.tabs`, `findNextFocusableTab()`) was treating it as a phantom tab. Moved it out of the tab-group's light DOM entirely (a sibling in a new `.tabs-wrap` wrapper, not slotted), switching `moveTabIndicator()` from `offsetLeft`/`offsetWidth` to `getBoundingClientRect()` diffs against `.tabs-wrap` (needed since the indicator no longer shares a shadow-DOM-adjacent layout context with the tabs it's tracking).
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute

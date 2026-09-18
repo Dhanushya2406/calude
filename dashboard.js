@@ -26,21 +26,30 @@ let pendingErrorTimer = null;
 // ---------- Tabs ----------
 const mainTabs = document.getElementById("mainTabs");
 const tabIndicator = document.getElementById("tabIndicator");
+const tabsWrap = document.querySelector(".tabs-wrap");
 
 // Custom tab indicator — a single element, never recreated, moved by
 // measuring the active <sl-tab> and animating transform/width via CSS
 // (see .tab-indicator). Shoelace's own built-in indicator is turned off
-// (display: none) in favor of this, since it wasn't visibly animating
-// in this environment and tuning its properties further wasn't fixing
-// that. sl-tab reflects `active` as a real attribute, and its offsetLeft/
-// offsetWidth resolve against .main-tabs::part(tabs) (set position:
-// relative for exactly this), which is the same container this element
-// is slotted into — so the two sets of coordinates line up.
+// (display: none) in favor of this.
+//
+// It lives OUTSIDE sl-tab-group's light DOM (a sibling in .tabs-wrap),
+// deliberately NOT slot="nav" — Shoelace's getAllTabs() does
+// `slot.assignedElements()` with no tag-name filtering, so anything
+// slotted into "nav" is treated as a phantom tab by its own keyboard-nav
+// indexing. An earlier version slotted the indicator into "nav" and that
+// silently broke arrow-key tab navigation while looking fine visually.
+// Because it's now outside the component, getBoundingClientRect() (works
+// across shadow boundaries) is used instead of offsetLeft/offsetWidth
+// (which would resolve against the wrong positioned ancestor from here).
 function moveTabIndicator() {
   const activeTab = mainTabs.querySelector("sl-tab[active]");
-  if (!activeTab || !tabIndicator) return;
-  tabIndicator.style.width = `${activeTab.offsetWidth}px`;
-  tabIndicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+  if (!activeTab || !tabIndicator || !tabsWrap) return;
+  const tabRect = activeTab.getBoundingClientRect();
+  const wrapRect = tabsWrap.getBoundingClientRect();
+  tabIndicator.style.width = `${tabRect.width}px`;
+  tabIndicator.style.top = `${tabRect.bottom - wrapRect.top}px`;
+  tabIndicator.style.transform = `translateX(${tabRect.left - wrapRect.left}px)`;
 }
 
 mainTabs.addEventListener("sl-tab-show", (e) => {
@@ -49,9 +58,29 @@ mainTabs.addEventListener("sl-tab-show", (e) => {
   moveTabIndicator();
 });
 
+// Chrome's "aria-hidden on an element containing focus" warning: Shoelace's
+// setActiveTab() (tab-group source) never blurs anything — it only flips
+// `active` on tabs/panels and emits sl-tab-hide/sl-tab-show, leaving focus
+// management entirely to the consumer. sl-tab-panel's active->aria-hidden
+// reflection happens in its `watch("active")` handler, which (like all Lit
+// reactive updates) runs on the NEXT microtask, not synchronously — so
+// blurring here, synchronously inside the sl-tab-hide handler (which fires
+// before that microtask), is guaranteed to land before aria-hidden is
+// actually applied. This one handler covers every path that hides a panel
+// (native tab clicks, keyboard nav, and our own programmatic
+// mainTabs.show() calls in openWatch()/markWatchedBtn) instead of needing
+// a blur() call duplicated at each call site — and native tab clicks
+// specifically had NO blur handling at all before this.
+mainTabs.addEventListener("sl-tab-hide", (e) => {
+  const panel = mainTabs.querySelector(`sl-tab-panel[name="${e.detail.name}"]`);
+  if (panel?.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+});
+
 // Initial placement: sl-tab needs to be upgraded and laid out first (its
-// offsetWidth is 0/wrong before that), and DM Sans loading late can also
-// shift tab widths — cover both with a couple of rAFs plus a fonts-ready
+// rect is 0/wrong before that), and DM Sans loading late can also shift
+// tab widths — cover both with a couple of rAFs plus a fonts-ready
 // re-measure, all cheap and idempotent.
 requestAnimationFrame(() => requestAnimationFrame(moveTabIndicator));
 document.fonts?.ready?.then(moveTabIndicator);
@@ -251,10 +280,8 @@ function openWatch(video) {
   clearTimeout(pendingErrorTimer);
   pendingErrorTimer = null;
 
-  // Avoid Chrome's "aria-hidden on an element containing focus" warning:
-  // the button that triggered this is still focused when the queue/history
-  // panel becomes aria-hidden a moment later.
-  document.activeElement?.blur();
+  // Focus-before-hide is handled centrally by the sl-tab-hide listener
+  // above — no need to blur here too.
   mainTabs.show("watch");
   document.getElementById("watchEmpty").style.display = "none";
   document.getElementById("watchActive").style.display = "flex";
@@ -423,16 +450,10 @@ function showPlaybackErrorFallback(code) {
 }
 
 // ---------- Mark as watched ----------
-document.getElementById("markWatchedBtn").addEventListener("click", async (e) => {
+document.getElementById("markWatchedBtn").addEventListener("click", async () => {
   if (!currentVideo) return;
-  // Blur immediately, before any await — the panel this button lives in
-  // is about to become aria-hidden once we switch back to Queue, and that
-  // must not happen while it (or anything inside it) still has focus.
-  // Blurring right away, well before that switch, leaves no race window
-  // (unlike blurring right before mainTabs.show(), which still showed the
-  // warning intermittently — presumably losing a race with something
-  // re-affirming focus during the awaited storage round-trip).
-  e.currentTarget.blur();
+  // Focus-before-hide is handled centrally by the sl-tab-hide listener
+  // above — no need to blur here too.
   const { queue = [] } = await chrome.storage.local.get("queue");
   const v = queue.find((x) => x.id === currentVideo.id);
   if (v) {
