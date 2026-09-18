@@ -18,6 +18,9 @@ const PLAYER_PAGE = `${PLAYER_ORIGIN}/calude/player.html`;
 
 let currentVideo = null;
 let currentPlayerTime = 0;
+let currentPlayerDuration = 0;
+let timelinePollInterval = null;
+let timelineDragging = false;
 let pendingHighlightStart = null;
 let watchLoadToken = 0;
 let playbackConfirmed = false;
@@ -279,6 +282,8 @@ function openWatch(video) {
   currentVideo = video;
   pendingHighlightStart = null;
   playbackConfirmed = false;
+  currentPlayerTime = 0;
+  currentPlayerDuration = 0;
   const token = ++watchLoadToken;
   clearTimeout(pendingErrorTimer);
   pendingErrorTimer = null;
@@ -293,6 +298,7 @@ function openWatch(video) {
   document.getElementById("watchExternalLink").href = video.url;
   document.getElementById("markEnd").disabled = true;
   document.getElementById("highlightStatus").textContent = "";
+  updateTimelineUI();
 
   const playerDiv = document.getElementById("player");
   playerDiv.innerHTML = `<iframe id="ytFrame"
@@ -305,6 +311,7 @@ function openWatch(video) {
     postToPlayer({ event: "listening", id: "snackable" });
   });
 
+  startTimelinePolling(video, token);
   renderNotesAndHighlights();
   trackWatchSession(video);
   loadChapters(video);
@@ -396,6 +403,10 @@ window.addEventListener("message", (event) => {
       playbackConfirmed = true;
       clearTimeout(pendingErrorTimer);
       pendingErrorTimer = null;
+      if (typeof data.info.duration === "number" && data.info.duration > 0) {
+        currentPlayerDuration = data.info.duration;
+      }
+      if (!timelineDragging) updateTimelineUI();
     }
     if (data.event === "onError") {
       const code = data.info;
@@ -466,6 +477,7 @@ document.getElementById("markWatchedBtn").addEventListener("click", async () => 
   await chrome.storage.local.set({ queue });
   // Go back to queue
   currentVideo = null;
+  clearInterval(timelinePollInterval);
   document.getElementById("watchActive").style.display = "none";
   document.getElementById("watchEmpty").style.display = "block";
   mainTabs.show("queue");
@@ -506,6 +518,72 @@ document.getElementById("markEnd").addEventListener("click", async () => {
 function seekTo(seconds) {
   postToPlayer({ event: "command", func: "seekTo", args: [seconds, true] });
 }
+
+// ---------- Custom timeline (replaces YouTube's own control bar, which is
+// suppressed via controls=0 in docs/player.html) ----------
+function currentDuration() {
+  return currentPlayerDuration > 0 ? currentPlayerDuration : currentVideo?.durationSec || 0;
+}
+
+function updateTimelineUI() {
+  const duration = currentDuration();
+  const pct = duration > 0 ? Math.min(100, (currentPlayerTime / duration) * 100) : 0;
+  document.getElementById("timelineFill").style.width = `${pct}%`;
+  document.getElementById("timelineHandle").style.left = `${pct}%`;
+  document.getElementById("timelineCurrent").textContent = formatTime(currentPlayerTime);
+  document.getElementById("timelineDuration").textContent = duration > 0 ? formatTime(duration) : "0:00";
+}
+
+// There's no synchronous getCurrentTime() available to us — no official
+// iframe_api (CSP-blocked), just the raw postMessage protocol — so "polling
+// getCurrentTime()" here means periodically asking the player to report it,
+// same pattern as every other command already sent this way (seekTo, etc.).
+// The actual value arrives back through the existing message listener,
+// which updates currentPlayerTime/currentPlayerDuration and calls
+// updateTimelineUI() itself.
+function startTimelinePolling(video, token) {
+  clearInterval(timelinePollInterval);
+  timelinePollInterval = setInterval(() => {
+    if (token !== watchLoadToken) {
+      clearInterval(timelinePollInterval);
+      return;
+    }
+    postToPlayer({ event: "command", func: "getCurrentTime", args: [] });
+  }, 500);
+}
+
+function seekFromTimelineEvent(clientX) {
+  const track = document.getElementById("timelineTrack");
+  const duration = currentDuration();
+  if (duration <= 0) return;
+  const rect = track.getBoundingClientRect();
+  const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  const target = frac * duration;
+  currentPlayerTime = target;
+  updateTimelineUI();
+  seekTo(target);
+}
+
+(() => {
+  const track = document.getElementById("timelineTrack");
+  track.addEventListener("pointerdown", (e) => {
+    timelineDragging = true;
+    track.classList.add("dragging");
+    track.setPointerCapture(e.pointerId);
+    seekFromTimelineEvent(e.clientX);
+  });
+  track.addEventListener("pointermove", (e) => {
+    if (timelineDragging) seekFromTimelineEvent(e.clientX);
+  });
+  const endDrag = (e) => {
+    if (!timelineDragging) return;
+    timelineDragging = false;
+    track.classList.remove("dragging");
+    track.releasePointerCapture(e.pointerId);
+  };
+  track.addEventListener("pointerup", endDrag);
+  track.addEventListener("pointercancel", endDrag);
+})();
 
 async function renderNotesAndHighlights() {
   if (!currentVideo) return;

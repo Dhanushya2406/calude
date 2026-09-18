@@ -52,7 +52,31 @@ sl-icon { font-size: 18px; }
   position: relative;
 }
 .main-tabs::part(tabs) { flex: 1; display: flex; flex-direction: column; padding: 4px 12px; gap: 3px; position: relative; }
-.main-tabs::part(body) { flex: 1; overflow-y: auto; padding: 36px 44px; }
+
+/* ---- Header/scroll structural split ----
+   The previous approach put an H1 inside each sl-tab-panel and made it
+   position: sticky against ::part(body)'s own overflow-y: auto. That's a
+   stacking-context illusion, not a real separation, and it kept letting
+   scrolled content (card thumbnails, stat rows) visibly bleed through the
+   header despite an opaque background, a forced GPU layer, and isolation
+   — because sl-tab-panel wraps all its light-DOM content in an internal
+   `<slot part="base">` box (see tab-panel.styles: `.tab-panel { display:
+   block; padding: var(--padding); }`), and sticky positioning's exact
+   behavior through that extra box, combined with Shoelace's own
+   `--start`-placement panel padding, wasn't reliably landing.
+
+   Real fix: ::part(body) no longer scrolls at all — it's a plain flex
+   column sized to fill the sidebar's height. Each sl-tab-panel::part(base)
+   is stretched to that same full height. .page-header is now just a
+   normal, non-positioned block that sits BEFORE a separate .panel-scroll
+   div (the one and only thing with overflow-y: auto) inside each panel.
+   The header can never have anything scroll "through" or "behind" it,
+   because it is structurally outside the scrolling box, not stacked
+   above it — nothing to fix if there's no shared scroll/paint context. */
+.main-tabs::part(body) { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; }
+.main-tabs sl-tab-panel::part(base) { height: 100%; padding: 0; display: flex; flex-direction: column; min-height: 0; }
+
+.panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 36px 44px; }
 
 /* Shoelace's built-in active-tab-indicator is off — a fully custom one is
    used instead (#tabIndicator/moveTabIndicator in dashboard.js). It's
@@ -167,20 +191,10 @@ sl-icon { font-size: 18px; }
 
 /* ---- Page headers ---- */
 .page-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  margin: -36px -44px 28px;
+  flex-shrink: 0;
   padding: 26px 44px 20px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  /* Chrome ghosting fix: a sticky element with no compositor layer of its
-     own can fail to fully repaint content scrolling underneath it,
-     letting it show through semi-transparently. Forcing this onto its
-     own GPU layer (and isolating its stacking context) makes the browser
-     always treat it as fully opaque during scroll compositing. */
-  transform: translateZ(0);
-  isolation: isolate;
 }
 .page-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
 .page-subtitle { margin: 0; color: var(--muted); font-size: 14px; }
@@ -388,7 +402,64 @@ sl-menu-item::part(base):hover { background: var(--surface); }
 .player-col { flex: 2; }
 .side-col { flex: 1; min-width: 280px; }
 
-#player iframe { width: 100%; aspect-ratio: 16/9; border-radius: var(--radius); border: none; }
+#player iframe { width: 100%; aspect-ratio: 16/9; border-radius: var(--radius) var(--radius) 0 0; border: none; display: block; }
+
+/* ---- Custom timeline — replaces YouTube's own control bar (suppressed via
+   controls=0 in docs/player.html) with a minimal one of our own, seated
+   directly against the player's bottom edge (rounded corners meet, no gap)
+   so it reads as one attached unit rather than a separate control panel.
+   Progress comes from polling getCurrentTime() via the existing postMessage
+   bridge (see startTimelinePolling() in dashboard.js); dragging/clicking
+   calls the same seekTo() already used for chapter/note-timestamp jumps. ---- */
+.custom-timeline {
+  background: #0d0b08;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 10px 14px 12px;
+}
+.custom-timeline-track {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, .15);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: height .12s ease;
+}
+.custom-timeline-track:hover,
+.custom-timeline-track.dragging { height: 6px; }
+.custom-timeline-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.custom-timeline-handle {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity .15s ease;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+}
+.custom-timeline-track:hover .custom-timeline-handle,
+.custom-timeline-track.dragging .custom-timeline-handle { opacity: 1; }
+.custom-timeline-time {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 
 .video-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .video-meta h3 { margin: 14px 0 2px; font-size: 16px; flex-basis: 100%; }

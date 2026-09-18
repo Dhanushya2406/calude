@@ -36,54 +36,67 @@
             <p class="page-subtitle">Curated from your YouTube Watch Later — consume with intent.</p>
           </div>
         </div>
+        <div class="panel-scroll">
+          <div class="stat-row" id="statRow"></div>
 
-        <div class="stat-row" id="statRow"></div>
-
-        <div class="session-bar">
-          <label>I have</label>
-          <sl-select id="sessionMinutes" value="0" size="small" class="session-select">
-            <sl-option value="0">time to browse</sl-option>
-            <sl-option value="30">30 min</sl-option>
-            <sl-option value="60">1 hr</sl-option>
-            <sl-option value="90">90 min</sl-option>
-            <sl-option value="120">2 hrs</sl-option>
-          </sl-select>
-          <sl-checkbox id="hideNonEmbeddable" size="small">Embeddable only</sl-checkbox>
-          <sl-badge id="sessionFitCount" variant="neutral" pill class="fit-badge"></sl-badge>
+          <div class="session-bar">
+            <label>I have</label>
+            <sl-select id="sessionMinutes" value="0" size="small" class="session-select">
+              <sl-option value="0">time to browse</sl-option>
+              <sl-option value="30">30 min</sl-option>
+              <sl-option value="60">1 hr</sl-option>
+              <sl-option value="90">90 min</sl-option>
+              <sl-option value="120">2 hrs</sl-option>
+            </sl-select>
+            <sl-checkbox id="hideNonEmbeddable" size="small">Embeddable only</sl-checkbox>
+            <sl-badge id="sessionFitCount" variant="neutral" pill class="fit-badge"></sl-badge>
+          </div>
+          <div id="queueList" class="queue-grid"></div>
         </div>
-        <div id="queueList" class="queue-grid"></div>
       </sl-tab-panel>
 
       <sl-tab-panel name="watch">
-        <div id="watchEmpty" class="empty-state">Pick a video from your Queue to start watching.</div>
-        <div id="watchActive" class="watch-active" style="display:none;">
-          <div class="player-col">
-            <div id="player"></div>
-            <div class="video-meta">
-              <h3 id="watchTitle"></h3>
-              <span id="watchChannel" class="muted"></span>
-              <a id="watchExternalLink" href="#" target="_blank" class="external-link">Open on YouTube ↗</a>
-              <sl-button id="markWatchedBtn" variant="success" size="small">✓ Mark as watched</sl-button>
+        <div class="panel-scroll">
+          <div id="watchEmpty" class="empty-state">Pick a video from your Queue to start watching.</div>
+          <div id="watchActive" class="watch-active" style="display:none;">
+            <div class="player-col">
+              <div id="player"></div>
+              <div id="customTimeline" class="custom-timeline">
+                <div id="timelineTrack" class="custom-timeline-track">
+                  <div id="timelineFill" class="custom-timeline-fill"></div>
+                  <div id="timelineHandle" class="custom-timeline-handle"></div>
+                </div>
+                <div class="custom-timeline-time">
+                  <span id="timelineCurrent">0:00</span>
+                  <span id="timelineDuration">0:00</span>
+                </div>
+              </div>
+              <div class="video-meta">
+                <h3 id="watchTitle"></h3>
+                <span id="watchChannel" class="muted"></span>
+                <a id="watchExternalLink" href="#" target="_blank" class="external-link">Open on YouTube ↗</a>
+                <sl-button id="markWatchedBtn" variant="success" size="small">✓ Mark as watched</sl-button>
+              </div>
+              <div class="highlight-controls">
+                <sl-button id="markStart" size="small">Mark highlight start</sl-button>
+                <sl-button id="markEnd" size="small" disabled>Mark highlight end</sl-button>
+                <span id="highlightStatus" class="muted"></span>
+              </div>
+              <div id="chapterSection" class="chapter-section" style="display:none;">
+                <h4>Chapters</h4>
+                <div id="chapterList" class="chapter-list"></div>
+              </div>
             </div>
-            <div class="highlight-controls">
-              <sl-button id="markStart" size="small">Mark highlight start</sl-button>
-              <sl-button id="markEnd" size="small" disabled>Mark highlight end</sl-button>
-              <span id="highlightStatus" class="muted"></span>
+            <div class="side-col">
+              <h4>Notes</h4>
+              <div class="note-input-row">
+                <sl-button id="captureNoteBtn" variant="primary" size="small">+ Note @ current time</sl-button>
+              </div>
+              <div id="noteList" class="note-list"></div>
+              <sl-divider></sl-divider>
+              <h4>Highlights</h4>
+              <div id="highlightList" class="highlight-list"></div>
             </div>
-            <div id="chapterSection" class="chapter-section" style="display:none;">
-              <h4>Chapters</h4>
-              <div id="chapterList" class="chapter-list"></div>
-            </div>
-          </div>
-          <div class="side-col">
-            <h4>Notes</h4>
-            <div class="note-input-row">
-              <sl-button id="captureNoteBtn" variant="primary" size="small">+ Note @ current time</sl-button>
-            </div>
-            <div id="noteList" class="note-list"></div>
-            <sl-divider></sl-divider>
-            <h4>Highlights</h4>
-            <div id="highlightList" class="highlight-list"></div>
           </div>
         </div>
       </sl-tab-panel>
@@ -95,7 +108,9 @@
             <p class="page-subtitle">Everything you've actually watched, with your notes and highlights attached.</p>
           </div>
         </div>
-        <div id="historyList" class="queue-list"></div>
+        <div class="panel-scroll">
+          <div id="historyList" class="queue-list"></div>
+        </div>
       </sl-tab-panel>
 
       <sl-tab-panel name="analytics">
@@ -105,13 +120,15 @@
             <p class="page-subtitle">Where your watch time actually goes, by category.</p>
           </div>
         </div>
-        <div class="stat-row" id="analyticsStatRow"></div>
-        <div id="analyticsBars" class="analytics-bars"></div>
+        <div class="panel-scroll">
+          <div class="stat-row" id="analyticsStatRow"></div>
+          <div id="analyticsBars" class="analytics-bars"></div>
+        </div>
       </sl-tab-panel>
     </sl-tab-group>
     <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
 
-    <div class="version-footer">v2.4.1 · fixed card-scroll ghosting</div>
+    <div class="version-footer">v2.5.0 · custom timeline + real header fix</div>
   </div>
 
   <script src="dashboard.js"></script>

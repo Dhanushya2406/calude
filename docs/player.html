@@ -34,7 +34,12 @@
   const frame = document.getElementById("yt");
 
   if (videoId) {
-    frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(videoId)}?enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+    // controls=0/rel=0/iv_load_policy=3: suppress YouTube's own control bar,
+    // end-screen related videos, and annotations — Snackable renders its own
+    // minimal timeline instead (see dashboard.js). The YouTube logo/watermark
+    // itself can't be removed this way (or any way) — that's a term of
+    // YouTube's embed, not a parameter.
+    frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(videoId)}?enablejsapi=1&controls=0&rel=0&iv_load_policy=3&origin=${encodeURIComponent(location.origin)}`;
   }
 
   window.addEventListener("message", (event) => {
