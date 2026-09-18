@@ -25,10 +25,37 @@ let pendingErrorTimer = null;
 
 // ---------- Tabs ----------
 const mainTabs = document.getElementById("mainTabs");
+const tabIndicator = document.getElementById("tabIndicator");
+
+// Custom tab indicator — a single element, never recreated, moved by
+// measuring the active <sl-tab> and animating transform/width via CSS
+// (see .tab-indicator). Shoelace's own built-in indicator is turned off
+// (display: none) in favor of this, since it wasn't visibly animating
+// in this environment and tuning its properties further wasn't fixing
+// that. sl-tab reflects `active` as a real attribute, and its offsetLeft/
+// offsetWidth resolve against .main-tabs::part(tabs) (set position:
+// relative for exactly this), which is the same container this element
+// is slotted into — so the two sets of coordinates line up.
+function moveTabIndicator() {
+  const activeTab = mainTabs.querySelector("sl-tab[active]");
+  if (!activeTab || !tabIndicator) return;
+  tabIndicator.style.width = `${activeTab.offsetWidth}px`;
+  tabIndicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+}
+
 mainTabs.addEventListener("sl-tab-show", (e) => {
   if (e.detail.name === "analytics") renderAnalytics();
   if (e.detail.name === "history") renderHistory();
+  moveTabIndicator();
 });
+
+// Initial placement: sl-tab needs to be upgraded and laid out first (its
+// offsetWidth is 0/wrong before that), and DM Sans loading late can also
+// shift tab widths — cover both with a couple of rAFs plus a fonts-ready
+// re-measure, all cheap and idempotent.
+requestAnimationFrame(() => requestAnimationFrame(moveTabIndicator));
+document.fonts?.ready?.then(moveTabIndicator);
+window.addEventListener("resize", moveTabIndicator);
 
 document.getElementById("syncNowBtn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;

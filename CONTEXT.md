@@ -135,6 +135,15 @@ The v1.7.1 fix for this (blur before `mainTabs.show(...)`) recurred specifically
 
 Fixed by moving the blur to the very first line of the handler — `e.currentTarget.blur()`, executed synchronously on click before any `await`, so focus is cleared long before the panel-hiding logic runs later, not right before it.
 
+### v2.1.0 — replaced Shoelace's indicator with a fully custom one
+v2.0.1/v2.0.2 tuned Shoelace's built-in `active-tab-indicator` (correct custom properties, correct transitioned properties per its actual source) but the user reported no visible change at all — rather than keep tuning a mechanism that wasn't visibly working for unconfirmed reasons, replaced it outright with a fully custom implementation, per explicit spec:
+
+- `#tabIndicator` (`.tab-indicator` in dashboard.css) — a single `<div slot="nav">`, sibling to the `sl-tab` elements, never recreated. Shoelace's own indicator is now `display: none`.
+- `moveTabIndicator()` in dashboard.js measures the active tab (`mainTabs.querySelector("sl-tab[active]")`) via `offsetLeft`/`offsetWidth`, and sets the indicator's `transform: translateX()` + `width` to match. Both resolve against `.main-tabs::part(tabs)` (given `position: relative` for exactly this), which is the same container the indicator is slotted into, so the two coordinate systems line up.
+- Runs on every `sl-tab-show` (fires identically for clicks, keyboard-arrow navigation, and programmatic `mainTabs.show(...)` calls like `openWatch()`/`markWatchedBtn` use — one code path for all of them, not handled separately per trigger).
+- Initial placement covered by a double `requestAnimationFrame` (sl-tab needs to upgrade and lay out first — its `offsetWidth` is 0/wrong before that) plus a `document.fonts.ready` re-measure (DM Sans loading late can shift tab widths after the first measurement) and a `resize` listener.
+- `.5s cubic-bezier(.16, 1, .3, 1)` — a springy-but-controlled ease-out, within the requested 400–600ms range.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
