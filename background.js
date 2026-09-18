@@ -54,6 +54,8 @@ async function registerRefererFixRule() {
         },
       ],
     });
+    const active = await chrome.declarativeNetRequest.getDynamicRules();
+    console.log("Snackable: Referer fix rules active:", active.map((r) => r.id));
   } catch (e) {
     console.warn("Snackable: failed to register Referer rule:", e);
   }

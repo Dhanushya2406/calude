@@ -193,10 +193,16 @@ window.addEventListener("message", (event) => {
     if (data.info && typeof data.info.currentTime === "number") {
       currentPlayerTime = data.info.currentTime;
     }
-    if (data.event === "onError" || typeof data.info === "number") {
-      const code = data.event === "onError" ? data.info : null;
-      if (code === 101 || code === 150 || code === 152) {
+    if (data.event === "onError") {
+      const code = data.info;
+      console.warn("Snackable: YouTube player onError", code, "video:", currentVideo?.id);
+      // 101/150 = owner disabled embedding (the only case this actually means).
+      // 100 = video removed/private. 2/5/152/153/other = transient or referer-related
+      // playback failures (see background.js's Referer-fix comment) — NOT the same thing.
+      if (code === 101 || code === 150) {
         showEmbedDisabledFallback();
+      } else {
+        showPlaybackErrorFallback(code);
       }
     }
   } catch (_) {}
@@ -213,6 +219,23 @@ function showEmbedDisabledFallback() {
       <a href="${currentVideo.url}" target="_blank" class="watch-btn">Open on YouTube ↗</a>
     </div>
   `;
+}
+
+function showPlaybackErrorFallback(code) {
+  if (!currentVideo) return;
+  const video = currentVideo;
+  const playerDiv = document.getElementById("player");
+  const label = code === 100 ? "This video was removed or made private" : `Playback failed (error ${code})`;
+  playerDiv.innerHTML = `
+    <div class="embed-disabled">
+      <div class="embed-disabled-icon">⚠️</div>
+      <h3>${escapeHtml(label)}</h3>
+      <p>${code === 100 ? "It's no longer available on YouTube." : "This is usually temporary, not a creator restriction — try again or open it on YouTube."} Your notes and highlights will still save here.</p>
+      ${code === 100 ? "" : `<button id="retryPlaybackBtn" class="watch-btn">↻ Retry</button>`}
+      <a href="${video.url}" target="_blank" class="watch-btn">Open on YouTube ↗</a>
+    </div>
+  `;
+  document.getElementById("retryPlaybackBtn")?.addEventListener("click", () => openWatch(video));
 }
 
 // ---------- Mark as watched ----------
