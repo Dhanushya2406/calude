@@ -234,12 +234,24 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 .queue-grid .queue-item {
   position: relative;
   cursor: pointer;
-  will-change: transform;
-  transform: translateZ(0) scale(1);
+  transform: scale(1);
   transition: transform .4s cubic-bezier(.16, 1, .3, 1);
 }
+/* will-change only while actually hovered/focused, not permanently on
+   every card — with 20-40+ cards on screen, permanently GPU-promoting
+   all of them at once (as an earlier version did) creates enough
+   simultaneous compositor layers to cause real occlusion glitches, like
+   card thumbnails visibly ghosting through the sticky page header while
+   scrolling. Browser guidance is explicit that will-change should be
+   applied just-in-time to elements about to animate, not left on
+   indefinitely — this is that in practice, not just theory. */
 .queue-grid .queue-item:hover,
-.queue-grid .queue-item:focus-visible { transform: translateZ(0) scale(1.09); z-index: 5; outline: none; }
+.queue-grid .queue-item:focus-visible {
+  will-change: transform;
+  transform: scale(1.09);
+  z-index: 5;
+  outline: none;
+}
 
 .queue-grid .queue-item::part(base) {
   background: var(--surface);
