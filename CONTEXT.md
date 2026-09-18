@@ -95,6 +95,9 @@ Queue moved from a row list to a card grid (`.queue-grid` in dashboard.html/css)
 
 **Pitfall avoided, worth knowing for next time:** the new `.qi-play` overlay button shared a class with the old generic `.watch-btn` rule (background/padding/color for the plain-element Watch-tab fallback buttons). Since both were single-class selectors, whichever rule appeared later in dashboard.css would silently win per-property in the cascade — checked source order before shipping and renamed rather than assuming it'd be fine.
 
+### v1.8.1 — undo the white card panel, redo category as a tag
+v1.8.0's literal white info-panel (copying the reference screenshot exactly) clashed with the rest of the dark app rather than reading as intentional contrast — reverted to `var(--surface)` background with the normal `--text`/`--muted` palette, keeping only the *structural* pattern (thumbnail-top, info-bottom) from the reference, not its literal light-mode colors. Also replaced the boxy `sl-select` category control (too heavy for a small card footer) with a compact `sl-dropdown` + `sl-badge` "tag" trigger + `sl-menu` — click the pill, pick from the menu, badge updates immediately (before the storage round-trip finishes, to avoid flicker) and `chrome.storage.onChanged` reconciles the full re-render shortly after regardless.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute

@@ -117,14 +117,14 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 
 .hint { font-size: 13px; color: var(--muted); }
 
-/* ---- Queue: card grid (thumbnail-top, white info-bottom) ---- */
+/* ---- Queue: card grid (thumbnail-top, info-bottom) ---- */
 .queue-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 18px;
 }
 
-.queue-grid .queue-item::part(base) { background: #fff; border: none; overflow: hidden; }
+.queue-grid .queue-item::part(base) { background: var(--surface); border-color: var(--border); overflow: hidden; }
 .queue-grid .queue-item::part(body) { padding: 0; display: block; }
 
 .qi-media { position: relative; aspect-ratio: 16/9; background: var(--surface-2); }
@@ -158,18 +158,23 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 .qi-info h4 {
   margin: 0 0 4px;
   font-size: 14px;
-  font-weight: 700;
-  color: #17140f;
+  font-weight: 600;
+  color: var(--text);
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.qi-channel { display: block; font-size: 12px; color: #8a8378; margin-bottom: 10px; }
-.queue-grid .category-select { width: 100%; }
-.queue-grid .category-select::part(combobox) { background: #f4f1ec; border-color: #e6e0d6; }
-.queue-grid .category-select::part(display-input) { color: #17140f; }
+.qi-channel { display: block; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+.category-dropdown { display: block; }
+.category-badge { cursor: pointer; }
+.category-badge::part(base) { background: var(--surface-2); color: var(--muted); font-weight: 500; }
+.category-badge:hover::part(base) { color: var(--accent); }
+sl-menu { --sl-panel-background-color: var(--surface-2); background: var(--surface-2); border-color: var(--border); }
+sl-menu-item::part(base) { color: var(--text); }
+sl-menu-item::part(base):hover { background: var(--surface); }
 
 /* ---- History: row list ---- */
 .queue-list { display: flex; flex-direction: column; gap: 10px; }
@@ -206,8 +211,6 @@ sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }
 .queue-item-info h4 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
 .queue-item-info .muted { font-size: 12px; }
 .queue-item-info sl-badge { margin-top: 4px; }
-
-.category-select { width: 160px; flex-shrink: 0; }
 
 /* ---- History meta ---- */
 .history-meta {

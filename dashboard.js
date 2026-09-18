@@ -158,20 +158,25 @@ async function renderQueue() {
           <div class="qi-info">
             <h4>${escapeHtml(v.title)}</h4>
             <span class="qi-channel">${escapeHtml(v.channel)}</span>
-            <sl-select data-id="${v.id}" size="small" value="${escapeHtml(v.category)}" class="category-select">
-              ${CATEGORIES.map((c) => `<sl-option value="${escapeHtml(c)}">${escapeHtml(c)}</sl-option>`).join("")}
-            </sl-select>
+            <sl-dropdown data-id="${v.id}" class="category-dropdown">
+              <sl-badge slot="trigger" variant="neutral" pill class="category-badge">${escapeHtml(v.category)}</sl-badge>
+              <sl-menu>
+                ${CATEGORIES.map((c) => `<sl-menu-item value="${escapeHtml(c)}">${escapeHtml(c)}</sl-menu-item>`).join("")}
+              </sl-menu>
+            </sl-dropdown>
           </div>
         </sl-card>`;
     })
     .join("");
 
-  list.querySelectorAll("sl-select").forEach((sel) => {
-    sel.addEventListener("sl-change", async (e) => {
+  list.querySelectorAll(".category-dropdown").forEach((dd) => {
+    dd.addEventListener("sl-select", async (e) => {
+      const category = e.detail.item.value;
       const { queue = [] } = await chrome.storage.local.get("queue");
-      const v = queue.find((x) => x.id === e.target.dataset.id);
-      if (v) v.category = e.target.value;
+      const v = queue.find((x) => x.id === dd.dataset.id);
+      if (v) v.category = category;
       await chrome.storage.local.set({ queue });
+      dd.querySelector(".category-badge").textContent = category;
     });
   });
 
