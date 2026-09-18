@@ -396,8 +396,16 @@ function showPlaybackErrorFallback(code) {
 }
 
 // ---------- Mark as watched ----------
-document.getElementById("markWatchedBtn").addEventListener("click", async () => {
+document.getElementById("markWatchedBtn").addEventListener("click", async (e) => {
   if (!currentVideo) return;
+  // Blur immediately, before any await — the panel this button lives in
+  // is about to become aria-hidden once we switch back to Queue, and that
+  // must not happen while it (or anything inside it) still has focus.
+  // Blurring right away, well before that switch, leaves no race window
+  // (unlike blurring right before mainTabs.show(), which still showed the
+  // warning intermittently — presumably losing a race with something
+  // re-affirming focus during the awaited storage round-trip).
+  e.currentTarget.blur();
   const { queue = [] } = await chrome.storage.local.get("queue");
   const v = queue.find((x) => x.id === currentVideo.id);
   if (v) {
@@ -409,7 +417,6 @@ document.getElementById("markWatchedBtn").addEventListener("click", async () => 
   currentVideo = null;
   document.getElementById("watchActive").style.display = "none";
   document.getElementById("watchEmpty").style.display = "block";
-  document.activeElement?.blur();
   mainTabs.show("queue");
 });
 

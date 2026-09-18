@@ -130,6 +130,11 @@ Correct fix: set `--indicator-color`/`--track-width` as custom properties on `.m
 
 **Lesson for next time touching vendored Shoelace internals**: check `vendor/shoelace/chunks/*.js` for the component's actual JS/CSS before writing `::part()` overrides, rather than assuming a part behaves like a plain styled div — several Shoelace parts (this indicator included) render via CSS custom properties or borders rather than the properties you'd naively reach for.
 
+### v2.0.2 — the "Mark as watched" aria-hidden warning came back, fixed the actual race
+The v1.7.1 fix for this (blur before `mainTabs.show(...)`) recurred specifically on `markWatchedBtn`, not `openWatch()`. Difference between the two call sites: `openWatch()` blurs and calls `mainTabs.show("watch")` back-to-back with no `await` in between — no race possible. `markWatchedBtn`'s handler had `document.activeElement?.blur()` positioned *after* two `await chrome.storage.local.get/set(...)` calls — during that gap, something (plausibly Shoelace's own focus handling, not confirmed) could re-affirm focus on the button before the blur line ran, leaving a real race window between "storage write completes" and "blur happens."
+
+Fixed by moving the blur to the very first line of the handler — `e.currentTarget.blur()`, executed synchronously on click before any `await`, so focus is cleared long before the panel-hiding logic runs later, not right before it.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
