@@ -165,8 +165,9 @@ function openWatch(video) {
   document.getElementById("highlightStatus").textContent = "";
 
   const playerDiv = document.getElementById("player");
+  const embedOrigin = encodeURIComponent(location.origin);
   playerDiv.innerHTML = `<iframe id="ytFrame"
-    src="https://www.youtube-nocookie.com/embed/${video.id}?enablejsapi=1"
+    src="https://www.youtube-nocookie.com/embed/${video.id}?enablejsapi=1&origin=${embedOrigin}"
     referrerpolicy="strict-origin-when-cross-origin"
     allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
 
