@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Snackable</title>
+<link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">🍿 Snackable</div>
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="queue">Queue</button>
+        <button class="tab-btn" data-tab="watch">Watch</button>
+        <button class="tab-btn" data-tab="history">History</button>
+        <button class="tab-btn" data-tab="analytics">Analytics</button>
+      </nav>
+      <button id="syncNowBtn" class="sync-btn">Sync now</button>
+    </header>
+
+    <main>
+      <section id="queue" class="panel active">
+        <div class="session-bar">
+          <label>I have</label>
+          <select id="sessionMinutes">
+            <option value="0">time to browse</option>
+            <option value="30">30 min</option>
+            <option value="60">1 hr</option>
+            <option value="90">90 min</option>
+            <option value="120">2 hrs</option>
+          </select>
+          <label class="filter-toggle">
+            <input type="checkbox" id="hideNonEmbeddable" />
+            <span>Embeddable only</span>
+          </label>
+          <span id="sessionFitCount" class="hint"></span>
+        </div>
+        <div id="queueList" class="queue-list"></div>
+      </section>
+
+      <section id="watch" class="panel">
+        <div id="watchEmpty" class="empty-state">Pick a video from your Queue to start watching.</div>
+        <div id="watchActive" class="watch-active" style="display:none;">
+          <div class="player-col">
+            <div id="player"></div>
+            <div class="video-meta">
+              <h3 id="watchTitle"></h3>
+              <span id="watchChannel" class="muted"></span>
+              <a id="watchExternalLink" href="#" target="_blank" class="external-link">Open on YouTube ↗</a>
+              <button id="markWatchedBtn" class="mark-watched-btn">✓ Mark as watched</button>
+            </div>
+            <div class="highlight-controls">
+              <button id="markStart">Mark highlight start</button>
+              <button id="markEnd" disabled>Mark highlight end</button>
+              <span id="highlightStatus" class="muted"></span>
+            </div>
+          </div>
+          <div class="side-col">
+            <h4>Notes</h4>
+            <div class="note-input-row">
+              <button id="captureNoteBtn">+ Note @ current time</button>
+            </div>
+            <div id="noteList" class="note-list"></div>
+            <h4>Highlights</h4>
+            <div id="highlightList" class="highlight-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="history" class="panel">
+        <div id="historyList" class="queue-list"></div>
+      </section>
+
+      <section id="analytics" class="panel">
+        <div id="analyticsSummary" class="analytics-summary"></div>
+        <div id="analyticsBars" class="analytics-bars"></div>
+      </section>
+    </main>
+    <div class="version-footer">v1.3 · embed-detect + duration + history</div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
