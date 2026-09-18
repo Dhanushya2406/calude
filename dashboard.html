@@ -11,18 +11,18 @@
 </head>
 <body>
   <div class="app">
-    <sl-tab-group id="mainTabs" class="main-tabs" placement="start">
-      <div slot="nav" class="sidebar-brand">
-        <sl-icon src="icons/ui/popcorn.svg" class="sidebar-brand-icon"></sl-icon>
-        <span class="sidebar-brand-name">Snackable</span>
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-left">
+        <sl-icon src="icons/ui/popcorn.svg" class="breadcrumb-icon"></sl-icon>
+        <span class="breadcrumb-name">Snackable</span>
       </div>
-      <sl-tab slot="nav" panel="queue"><sl-icon src="icons/ui/inbox.svg" class="nav-icon"></sl-icon> Queue</sl-tab>
-      <sl-tab slot="nav" panel="watch"><sl-icon src="icons/ui/circle-play.svg" class="nav-icon"></sl-icon> Watch</sl-tab>
-      <sl-tab slot="nav" panel="history"><sl-icon src="icons/ui/list-checks.svg" class="nav-icon"></sl-icon> History</sl-tab>
-      <sl-tab slot="nav" panel="analytics"><sl-icon src="icons/ui/chart-column.svg" class="nav-icon"></sl-icon> Analytics</sl-tab>
-      <div slot="nav" class="sidebar-footer">
-        <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
-      </div>
+      <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
+    </div>
+    <sl-tab-group id="mainTabs" class="main-tabs" placement="top">
+      <sl-tab slot="nav" panel="queue">Queue</sl-tab>
+      <sl-tab slot="nav" panel="watch">Watch</sl-tab>
+      <sl-tab slot="nav" panel="history">History</sl-tab>
+      <sl-tab slot="nav" panel="analytics">Analytics</sl-tab>
 
       <sl-tab-panel name="queue">
         <div class="page-header">
@@ -105,7 +105,7 @@
       </sl-tab-panel>
     </sl-tab-group>
 
-    <div class="version-footer">v1.9.1 · nav gradient + filled active icons</div>
+    <div class="version-footer">v2.0.0 · breadcrumb top nav</div>
   </div>
 
   <script src="dashboard.js"></script>

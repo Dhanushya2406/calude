@@ -113,6 +113,16 @@ Reference was a notification/toast card screenshot (gradient dark card, purple c
 - Re-enabled Shoelace's native `active-tab-indicator` (previously `display: none` since v1.7.0 in favor of a background pill) as a thin accent bar that slides smoothly between tabs — Shoelace animates its position/size internally via CSS `translate`/`height`, so this comes "for free" once un-hidden; just themed and given an explicit transition.
 - **"Filled" active icons**: Lucide is stroke-only — confirmed no `-fill` variants exist for any of our icon names (checked directly, all 404). True filled-icon swapping isn't available without switching icon sets entirely, so the active tab's icon instead gets a solid accent-colored rounded chip behind it with the icon's own stroke color flipped to the dark bg color (`.main-tabs sl-tab[active] .nav-icon`) — reads as "filled/emphasized" without needing filled source assets. Revisit only if a literal filled icon per nav item is required later (would mean sourcing a second icon set, e.g. Heroicons solid, alongside Lucide).
 
+### v2.0.0 — back to top navigation, Render-style breadcrumb + tabs
+The same reference image came back cropped wider, making clear it wasn't a notification card at all — it was a screenshot of a dashboard's **top navigation**: a thin breadcrumb/identity bar ("‹ / [icon] production ‹") above a row of plain-text tabs ("Commands Logs Metrics ..."), from what's recognizably Render.com's own dashboard chrome (the "Hibernation" copy matches their free-tier messaging verbatim). Asked to match this "exactly."
+
+This reverses the v1.7.0–v1.9.1 sidebar direction back to a two-row top nav:
+- **`.breadcrumb-bar`**: a thin top row (icon + "Snackable" wordmark on the left, Sync button on the right) with the same gradient treatment the sidebar had. Deliberately did *not* add a fake dropdown chevron/environment-switcher like the reference's "production ⌃" — there's nothing in Snackable for it to switch between, and a non-functional affordance would be misleading.
+- **`sl-tab-group` placement reverted to `"top"`** (was `"start"` since v1.7.0). Tabs are now plain text, no icons, no background pill, no colored chip — just color/weight change plus Shoelace's native sliding underline indicator, matching the reference's minimal "Commands Logs Metrics" style closely.
+- This incidentally resolves the v1.9.1 "no filled icon variant exists" limitation by removing tab icons entirely rather than working around it.
+
+Page-level content (stat rows, page headers, card grids) is unaffected — only the nav chrome changed. `.sidebar-brand`/`.nav-icon`/`.sidebar-footer` classes from the sidebar era are gone from both HTML and CSS, not just hidden.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
