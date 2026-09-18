@@ -7,6 +7,15 @@
 
 const CATEGORIES = ["Uncategorized", "Design", "Business", "Tech", "Growth", "Personal"];
 
+// YouTube rejects embeds from chrome-extension:// origins (seen as YouTube's
+// own "This video is unavailable — Error code 152" rendered inside the
+// iframe, not a client-side bug — confirmed across multiple videos,
+// unaffected by the declarativeNetRequest Referer fix or an origin= param).
+// Route through a relay page on a real https:// origin instead — see
+// docs/player.html. It just forwards postMessage traffic both ways.
+const PLAYER_ORIGIN = "https://dhanushya2406.github.io";
+const PLAYER_PAGE = `${PLAYER_ORIGIN}/calude/player.html`;
+
 let currentVideo = null;
 let currentPlayerTime = 0;
 let pendingHighlightStart = null;
@@ -173,9 +182,8 @@ function openWatch(video) {
   document.getElementById("highlightStatus").textContent = "";
 
   const playerDiv = document.getElementById("player");
-  const embedOrigin = encodeURIComponent(location.origin);
   playerDiv.innerHTML = `<iframe id="ytFrame"
-    src="https://www.youtube-nocookie.com/embed/${video.id}?enablejsapi=1&origin=${embedOrigin}"
+    src="${PLAYER_PAGE}?v=${encodeURIComponent(video.id)}"
     referrerpolicy="strict-origin-when-cross-origin"
     allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
 
@@ -191,12 +199,14 @@ function openWatch(video) {
 function postToPlayer(msg) {
   const frame = document.getElementById("ytFrame");
   if (frame?.contentWindow) {
-    frame.contentWindow.postMessage(JSON.stringify(msg), "https://www.youtube-nocookie.com");
+    // Goes to the relay page (docs/player.html), which forwards it into the
+    // actual YouTube iframe it hosts.
+    frame.contentWindow.postMessage(JSON.stringify(msg), PLAYER_ORIGIN);
   }
 }
 
 window.addEventListener("message", (event) => {
-  if (event.origin !== "https://www.youtube.com" && event.origin !== "https://www.youtube-nocookie.com") return;
+  if (event.origin !== PLAYER_ORIGIN) return;
   try {
     const data = JSON.parse(event.data);
     if (data.info && typeof data.info.currentTime === "number") {
