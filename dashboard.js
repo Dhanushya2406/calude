@@ -146,14 +146,11 @@ async function renderQueue() {
         : "";
 
       return `
-        <sl-card class="queue-item">
+        <sl-card class="queue-item" data-id="${v.id}" role="button" tabindex="0" aria-label="Watch ${escapeHtml(v.title)}">
           <div class="qi-media">
             <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
             ${embedBadge}
             ${durLabel}
-            <button class="qi-play" data-id="${v.id}" aria-label="Watch">
-              <sl-icon src="icons/ui/circle-play.svg"></sl-icon>
-            </button>
           </div>
           <div class="qi-info">
             <h4>${escapeHtml(v.title)}</h4>
@@ -180,11 +177,21 @@ async function renderQueue() {
     });
   });
 
-  list.querySelectorAll(".qi-play").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+  list.querySelectorAll(".queue-item").forEach((card) => {
+    const trigger = async () => {
       const { queue = [] } = await chrome.storage.local.get("queue");
-      const v = queue.find((x) => x.id === btn.dataset.id);
+      const v = queue.find((x) => x.id === card.dataset.id);
       if (v) openWatch(v);
+    };
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".category-dropdown")) return;
+      trigger();
+    });
+    card.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && !e.target.closest(".category-dropdown")) {
+        e.preventDefault();
+        trigger();
+      }
     });
   });
 }
@@ -529,23 +536,29 @@ async function renderHistory() {
       const durLabel = v.durationSec ? formatDuration(v.durationSec) : "";
 
       return `
-        <sl-card class="queue-item history-item">
-          <div class="thumb-wrap">
+        <sl-card class="history-card">
+          <div class="hc-thumb">
             <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
             ${durLabel ? `<span class="duration-label">${durLabel}</span>` : ""}
           </div>
-          <div class="queue-item-info">
+          <div class="hc-info">
             <h4>${escapeHtml(v.title)}</h4>
-            <span class="muted">${escapeHtml(v.channel)}</span>
-            <div class="history-meta">
+            <span class="hc-channel">${escapeHtml(v.channel)}</span>
+            <div class="hc-meta">
               <sl-badge variant="neutral" pill>${escapeHtml(v.category)}</sl-badge>
-              ${noteCount ? `<sl-badge variant="primary" pill>📝 ${noteCount} note${noteCount !== 1 ? "s" : ""}</sl-badge>` : ""}
-              ${hlCount ? `<sl-badge variant="warning" pill>✨ ${hlCount}</sl-badge>` : ""}
-              ${watchedDate ? `<span class="muted">${watchedDate}</span>` : ""}
+              ${noteCount ? `<span class="hc-stat"><sl-icon src="icons/ui/notebook-pen.svg"></sl-icon>${noteCount}</span>` : ""}
+              ${hlCount ? `<span class="hc-stat"><sl-icon src="icons/ui/sparkles.svg"></sl-icon>${hlCount}</span>` : ""}
+              ${watchedDate ? `<span class="hc-stat hc-date"><sl-icon src="icons/ui/calendar.svg"></sl-icon>${watchedDate}</span>` : ""}
             </div>
           </div>
-          <sl-button data-id="${v.id}" size="small" class="review-btn">Review</sl-button>
-          <sl-button data-id="${v.id}" size="small" class="unwatch-btn" title="Move back to queue">↩</sl-button>
+          <div class="hc-actions">
+            <button class="icon-btn review-btn" data-id="${v.id}" title="Review" aria-label="Review">
+              <sl-icon src="icons/ui/eye.svg"></sl-icon>
+            </button>
+            <button class="icon-btn unwatch-btn" data-id="${v.id}" title="Move back to queue" aria-label="Move back to queue">
+              <sl-icon src="icons/ui/undo-2.svg"></sl-icon>
+            </button>
+          </div>
         </sl-card>`;
     })
     .join("");
@@ -573,29 +586,59 @@ async function renderHistory() {
 }
 
 // ---------- Analytics ----------
+const CATEGORY_COLORS = ["#d97757", "#7ca8d9", "#7fae76", "#c99bde", "#d4a04a", "#e08cae"];
+
 async function renderAnalytics() {
   const { analyticsTotals = {}, queue = [] } = await chrome.storage.local.get(["analyticsTotals", "queue"]);
   const totalSeconds = Object.values(analyticsTotals).reduce((a, b) => a + b, 0);
   const watchedCount = queue.filter((v) => v.watched).length;
-  const queueCount = queue.filter((v) => !v.watched).length;
+  const entries = Object.entries(analyticsTotals).sort((a, b) => b[1] - a[1]);
 
-  document.getElementById("analyticsSummary").innerHTML =
-    totalSeconds === 0
-      ? `<span class="muted">No watch time recorded yet — open something from your Queue.</span>`
-      : `<strong>${(totalSeconds / 3600).toFixed(1)} hrs</strong> consumed · ${watchedCount} watched · ${queueCount} in queue`;
-
-  const maxVal = Math.max(...Object.values(analyticsTotals), 1);
-  const bars = document.getElementById("analyticsBars");
-  bars.innerHTML = Object.entries(analyticsTotals)
-    .sort((a, b) => b[1] - a[1])
+  const statRow = document.getElementById("analyticsStatRow");
+  const topCategory = entries[0]?.[0] || "—";
+  const stats = [
+    { icon: "clock", label: "Hours consumed", value: (totalSeconds / 3600).toFixed(1) },
+    { icon: "circle-check-big", label: "Videos watched", value: String(watchedCount) },
+    { icon: "tags", label: "Categories tracked", value: String(entries.length) },
+    { icon: "trending-up", label: "Top category", value: topCategory, isText: true },
+  ];
+  statRow.innerHTML = stats
     .map(
-      ([cat, secs]) => `
-      <sl-card class="bar-row">
-        <div class="bar-label">${escapeHtml(cat)}</div>
-        <sl-progress-bar value="${Math.round((secs / maxVal) * 100)}" class="bar-track"></sl-progress-bar>
-        <div class="bar-value">${(secs / 3600).toFixed(1)}h</div>
+      (s) => `
+      <sl-card class="stat-card">
+        <div class="stat-icon"><sl-icon src="icons/ui/${s.icon}.svg"></sl-icon></div>
+        <div class="stat-body">
+          <div class="stat-value${s.isText ? " stat-value-text" : ""}">${escapeHtml(s.value)}</div>
+          <div class="stat-label">${s.label}</div>
+        </div>
       </sl-card>`
     )
+    .join("");
+
+  const maxVal = Math.max(...entries.map(([, secs]) => secs), 1);
+  const bars = document.getElementById("analyticsBars");
+
+  if (entries.length === 0) {
+    bars.innerHTML = `<div class="empty-state">No watch time recorded yet — open something from your Queue.</div>`;
+    return;
+  }
+
+  bars.innerHTML = entries
+    .map(([cat, secs], i) => {
+      const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+      const pct = Math.round((secs / totalSeconds) * 100);
+      return `
+      <sl-card class="bar-row">
+        <div class="bar-icon" style="background:${color}22; color:${color};"><sl-icon src="icons/ui/chart-column.svg"></sl-icon></div>
+        <div class="bar-main">
+          <div class="bar-top-row">
+            <span class="bar-label">${escapeHtml(cat)}</span>
+            <span class="bar-value">${(secs / 3600).toFixed(1)}h · ${pct}%</span>
+          </div>
+          <sl-progress-bar value="${Math.round((secs / maxVal) * 100)}" class="bar-track" style="--indicator-color:${color};"></sl-progress-bar>
+        </div>
+      </sl-card>`;
+    })
     .join("");
 }
 
