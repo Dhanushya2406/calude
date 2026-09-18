@@ -29,18 +29,62 @@ sl-icon { font-size: 18px; }
 
 /* ---- Breadcrumb bar (identity row, above the tabs) ---- */
 .breadcrumb-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  min-height: 64px;
   padding: 10px 24px;
-  background: linear-gradient(180deg, #241f18 0%, var(--surface) 100%);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.breadcrumb-left { display: flex; align-items: center; gap: 8px; }
-.breadcrumb-icon { font-size: 17px; color: var(--accent); }
-.breadcrumb-name { font-size: 13px; font-weight: 600; color: var(--text); }
 #syncNowBtn sl-icon { font-size: 15px; }
+
+/* ---- Brand ribbon: a curved, layered banner draped over the top-left
+   of the breadcrumb bar — modeled on a reference screenshot of a status
+   banner with a concave-curved bottom edge that visibly overlaps the
+   plain bar beneath it, casting a shape-following shadow (a plain
+   box-shadow can't do that on a non-rectangular shape, hence the SVG
+   drop-shadow filter rather than a CSS shadow on a div). Purely
+   decorative — carries Snackable's own brand, not a real status. ---- */
+.brand-ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 64px;
+  z-index: 2;
+}
+.brand-ribbon-shape {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .5));
+}
+.brand-ribbon-shape path { fill: #0d0b08; }
+.brand-ribbon-content {
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  z-index: 1;
+}
+.brand-ribbon-icon {
+  font-size: 15px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.brand-ribbon-text { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
 
 /* ---- Tabs (sl-tab-group placement="top") ---- */
 .tabs-wrap { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }

@@ -12,9 +12,14 @@
 <body>
   <div class="app">
     <div class="breadcrumb-bar">
-      <div class="breadcrumb-left">
-        <sl-icon src="icons/ui/popcorn.svg" class="breadcrumb-icon"></sl-icon>
-        <span class="breadcrumb-name">Snackable</span>
+      <div class="brand-ribbon">
+        <svg class="brand-ribbon-shape" viewBox="0 0 260 64" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,0 H260 V14 C190,60 90,64 0,50 Z"></path>
+        </svg>
+        <div class="brand-ribbon-content">
+          <sl-icon src="icons/ui/popcorn.svg" class="brand-ribbon-icon"></sl-icon>
+          <span class="brand-ribbon-text">Snackable</span>
+        </div>
       </div>
       <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
     </div>
@@ -108,7 +113,7 @@
     <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
     </div>
 
-    <div class="version-footer">v2.2.0 · robust focus-before-hide, unpolluted tab list</div>
+    <div class="version-footer">v2.3.0 · curved brand ribbon</div>
   </div>
 
   <script src="dashboard.js"></script>

@@ -154,6 +154,13 @@ Told to stop patching call sites and inspect the real mechanism. Read Shoelace's
 
 **Also fixed, per the request to check whether the custom indicator was interfering with Shoelace's own focus management**: it was, structurally, even if not the direct cause of this specific warning. `getAllTabs()` does `slot.assignedElements()` with **no tag-name filtering** — the v2.1.0 indicator was `slot="nav"`, so Shoelace's own keyboard-navigation indexing (`this.tabs`, `findNextFocusableTab()`) was treating it as a phantom tab. Moved it out of the tab-group's light DOM entirely (a sibling in a new `.tabs-wrap` wrapper, not slotted), switching `moveTabIndicator()` from `offsetLeft`/`offsetWidth` to `getBoundingClientRect()` diffs against `.tabs-wrap` (needed since the indicator no longer shares a shadow-DOM-adjacent layout context with the tabs it's tracking).
 
+### v2.3.0 — the reference was never about the tab underline
+Two prior rounds (v1.9.1, v2.0.0) misread the same reference image as first a notification card, then just a "breadcrumb bar + plain tabs" structural cue, and kept tuning the tab-switch underline animation in response to feedback that was actually about a completely different element. On the third pass, told explicitly to stop patching the underline and re-examine the image: it's a **curved, layered ribbon banner** — concave bottom edge (thin on one side, deep dip, tall on the other), visibly drop-shadowed above the plain bar beneath it, not a rectangle at all. Confirmed with the user this should be permanent decoration carrying Snackable's own brand, not a real status banner (nothing in this extension hibernates/pauses).
+
+Implementation: `.brand-ribbon` — an inline SVG (`viewBox="0 0 260 64"`) with a single `<path>` (`M0,0 H260 V14 C190,60 90,64 0,50 Z`) for the curved silhouette, `filter: drop-shadow(...)` (a plain CSS `box-shadow` can't follow a non-rectangular shape, hence SVG-level `filter`), absolutely positioned over `.breadcrumb-bar`'s top-left with the popcorn icon (in a circular accent-colored chip) and "Snackable" wordmark overlaid on top via `.brand-ribbon-content`. `.breadcrumb-bar` grew taller (`min-height: 64px`) to contain it and switched from `justify-content: space-between` to `flex-end`, since the ribbon is `position: absolute` and no longer participates in the bar's flex layout — the Sync button is now the only flex child.
+
+Curve values (`H260 V14 C190,60 90,64 0,50`) are a best-effort approximation from a cropped screenshot, not a pixel-measured trace — expect to retune the control points once actually seen rendered.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
