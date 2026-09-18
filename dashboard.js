@@ -194,6 +194,72 @@ function openWatch(video) {
 
   renderNotesAndHighlights();
   trackWatchSession(video);
+  loadChapters(video);
+}
+
+// Best-effort chapter extraction from YouTube's watch-page JSON (same class
+// of fragility as background.js's DOM scraper — if YouTube changes this
+// structure, chapters just silently stop appearing rather than erroring).
+async function loadChapters(video) {
+  const token = watchLoadToken;
+  const section = document.getElementById("chapterSection");
+  const list = document.getElementById("chapterList");
+  section.style.display = "none";
+  list.innerHTML = "";
+  try {
+    const resp = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`);
+    const html = await resp.text();
+    if (token !== watchLoadToken) return; // user moved on to another video
+    const chapters = extractChaptersFromWatchHtml(html);
+    if (!chapters.length) return;
+    list.innerHTML = chapters
+      .map(
+        (c) => `<div class="chapter-item" data-seek="${c.startSec}">
+          <span class="chapter-time">${formatTime(c.startSec)}</span>
+          <span class="chapter-title">${escapeHtml(c.title)}</span>
+        </div>`
+      )
+      .join("");
+    list.querySelectorAll(".chapter-item").forEach((el) => {
+      el.addEventListener("click", () => seekTo(Number(el.dataset.seek)));
+    });
+    section.style.display = "block";
+  } catch (e) {
+    console.warn("Snackable: chapter fetch failed", e);
+  }
+}
+
+function extractChaptersFromWatchHtml(html) {
+  const match = html.match(/(?:var ytInitialData|window\["ytInitialData"\])\s*=\s*(\{.+?\});/s);
+  if (!match) return [];
+  let data;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    return [];
+  }
+  let found = [];
+  (function walk(node) {
+    if (found.length || !node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    if (Array.isArray(node.chapters) && node.chapters[0]?.chapterRenderer) {
+      found = node.chapters
+        .map((ch) => {
+          const r = ch.chapterRenderer;
+          return {
+            title: r?.title?.simpleText || "",
+            startSec: Math.round(Number(r?.timeRangeStartMillis || 0) / 1000),
+          };
+        })
+        .filter((c) => c.title);
+      return;
+    }
+    for (const key in node) walk(node[key]);
+  })(data);
+  return found;
 }
 
 function postToPlayer(msg) {
@@ -322,6 +388,10 @@ document.getElementById("markEnd").addEventListener("click", async () => {
   renderNotesAndHighlights();
 });
 
+function seekTo(seconds) {
+  postToPlayer({ event: "command", func: "seekTo", args: [seconds, true] });
+}
+
 async function renderNotesAndHighlights() {
   if (!currentVideo) return;
   const { notes = {}, highlights = {} } = await chrome.storage.local.get(["notes", "highlights"]);
@@ -331,15 +401,21 @@ async function renderNotesAndHighlights() {
   noteList.innerHTML = videoNotes
     .map(
       (n, i) => `
-      <div class="note-item">
-        <span class="ts">${formatTime(n.ts)}</span>
-        <textarea data-idx="${i}" rows="2" placeholder="What stood out?">${escapeHtml(n.text)}</textarea>
-      </div>`
+      <sl-card class="note-card">
+        <sl-badge slot="header" variant="neutral" pill class="ts-badge" data-seek="${n.ts}">${formatTime(n.ts)}</sl-badge>
+        <sl-textarea data-idx="${i}" rows="2" placeholder="What stood out?" resize="none"></sl-textarea>
+      </sl-card>`
     )
     .join("") || `<div class="muted">No notes yet.</div>`;
 
-  noteList.querySelectorAll("textarea").forEach((ta) => {
-    ta.addEventListener("blur", async () => {
+  // Set via the property, not an HTML attribute, so note text containing
+  // quotes/special characters can't break out of the markup.
+  noteList.querySelectorAll("sl-textarea").forEach((ta) => {
+    ta.value = videoNotes[Number(ta.dataset.idx)]?.text || "";
+  });
+
+  noteList.querySelectorAll("sl-textarea").forEach((ta) => {
+    ta.addEventListener("sl-blur", async () => {
       const { notes = {} } = await chrome.storage.local.get("notes");
       const list = notes[currentVideo.id] || [];
       if (list[ta.dataset.idx]) list[ta.dataset.idx].text = ta.value;
@@ -348,17 +424,27 @@ async function renderNotesAndHighlights() {
     });
   });
 
+  noteList.querySelectorAll(".ts-badge").forEach((badge) => {
+    badge.addEventListener("click", () => seekTo(Number(badge.dataset.seek)));
+  });
+
   const hlList = document.getElementById("highlightList");
   const videoHighlights = highlights[currentVideo.id] || [];
   hlList.innerHTML = videoHighlights
     .map(
       (h) => `
-      <div class="highlight-item">
-        <span class="ts">${formatTime(h.start)} – ${formatTime(h.end)}</span>
+      <sl-card class="highlight-card">
+        <div slot="header" class="highlight-card-header">
+          <sl-badge variant="primary" pill class="ts-badge" data-seek="${h.start}">${formatTime(h.start)} – ${formatTime(h.end)}</sl-badge>
+        </div>
         <div>${escapeHtml(h.label || "(no label)")}</div>
-      </div>`
+      </sl-card>`
     )
     .join("") || `<div class="muted">No highlights yet.</div>`;
+
+  hlList.querySelectorAll(".ts-badge").forEach((badge) => {
+    badge.addEventListener("click", () => seekTo(Number(badge.dataset.seek)));
+  });
 }
 
 // ---------- Watch session → analytics ----------

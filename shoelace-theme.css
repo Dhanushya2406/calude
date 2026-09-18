@@ -1,0 +1,45 @@
+/* Maps Shoelace's design tokens onto Snackable's existing warm/fintech
+   dark palette (see :root in dashboard.css) so vendored components look
+   native instead of Shoelace's default blue theme. */
+.sl-theme-dark {
+  --sl-color-neutral-0: #16130f;
+  --sl-color-neutral-50: #211c17;
+  --sl-color-neutral-100: #2a231c;
+  --sl-color-neutral-200: #3a3126;
+  --sl-color-neutral-300: #4a4032;
+  --sl-color-neutral-400: #6b5f4d;
+  --sl-color-neutral-500: #9c9184;
+  --sl-color-neutral-600: #b3aa9e;
+  --sl-color-neutral-700: #cfc7bb;
+  --sl-color-neutral-800: #e5ded2;
+  --sl-color-neutral-900: #f0e9df;
+  --sl-color-neutral-950: #f7f2ea;
+  --sl-color-neutral-1000: #ffffff;
+
+  --sl-color-primary-50: #2a1d16;
+  --sl-color-primary-100: #3d2519;
+  --sl-color-primary-200: #5c341f;
+  --sl-color-primary-300: #874824;
+  --sl-color-primary-400: #b25f30;
+  --sl-color-primary-500: #d97757;
+  --sl-color-primary-600: #e08e6f;
+  --sl-color-primary-700: #e7a58c;
+  --sl-color-primary-800: #eebca8;
+  --sl-color-primary-900: #f5d3c4;
+  --sl-color-primary-950: #fae8de;
+
+  --sl-color-success-500: #7fae76;
+  --sl-color-success-600: #90bd88;
+  --sl-color-warning-500: #d4a04a;
+  --sl-color-warning-600: #ddb066;
+
+  --sl-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-border-radius-medium: 10px;
+  --sl-border-radius-large: 14px;
+  --sl-input-border-color: var(--sl-color-neutral-200);
+  --sl-input-background-color: var(--sl-color-neutral-50);
+  --sl-panel-background-color: var(--sl-color-neutral-50);
+  --sl-panel-border-color: var(--sl-color-neutral-200);
+
+  color-scheme: dark;
+}
