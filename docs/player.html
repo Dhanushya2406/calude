@@ -17,10 +17,18 @@
   embed below behaves like a normal website embed, and to relay postMessage
   traffic between the extension (its parent) and the actual YouTube iframe.
   No data is stored or read here — it's a stateless message pipe.
+
+  Uses youtube.com (not youtube-nocookie.com): the nocookie domain never
+  sends cookies by design, so it can't recognize a logged-in/Premium session
+  and always serves ads. Plain youtube.com can honor YouTube Premium
+  ad-free playback IF the viewer is logged into that account in this same
+  browser — third-party cookie restrictions could still block that
+  recognition depending on Chrome's current settings, in which case ads
+  would still show despite this change.
 -->
 <iframe id="yt" allow="autoplay; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
 <script>
-  const YT_ORIGIN = "https://www.youtube-nocookie.com";
+  const YT_ORIGIN = "https://www.youtube.com";
   const params = new URLSearchParams(location.search);
   const videoId = params.get("v");
   const frame = document.getElementById("yt");

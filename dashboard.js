@@ -39,11 +39,50 @@ document.getElementById("syncNowBtn").addEventListener("click", async (e) => {
   btn.loading = false;
   btn.textContent = original;
   renderQueue();
+  renderStats();
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.queue) renderQueue();
+  if (area !== "local") return;
+  if (changes.queue) renderQueue();
+  if (changes.queue || changes.notes || changes.highlights || changes.analyticsTotals) renderStats();
 });
+
+// ---------- Stat cards ----------
+async function renderStats() {
+  const row = document.getElementById("statRow");
+  const { queue = [], notes = {}, highlights = {}, analyticsTotals = {} } = await chrome.storage.local.get([
+    "queue",
+    "notes",
+    "highlights",
+    "analyticsTotals",
+  ]);
+  const queueCount = queue.filter((v) => !v.watched).length;
+  const watchedCount = queue.filter((v) => v.watched).length;
+  const totalHours = Object.values(analyticsTotals).reduce((a, b) => a + b, 0) / 3600;
+  const noteCount = Object.values(notes).reduce((a, list) => a + list.length, 0);
+  const highlightCount = Object.values(highlights).reduce((a, list) => a + list.length, 0);
+
+  const stats = [
+    { icon: "📥", label: "In queue", value: String(queueCount) },
+    { icon: "✅", label: "Watched", value: String(watchedCount) },
+    { icon: "⏱", label: "Hours consumed", value: totalHours.toFixed(1) },
+    { icon: "📝", label: "Notes captured", value: String(noteCount + highlightCount) },
+  ];
+
+  row.innerHTML = stats
+    .map(
+      (s) => `
+      <sl-card class="stat-card">
+        <div class="stat-icon">${s.icon}</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.value}</div>
+          <div class="stat-label">${s.label}</div>
+        </div>
+      </sl-card>`
+    )
+    .join("");
+}
 
 // ---------- Queue ----------
 document.getElementById("sessionMinutes").addEventListener("sl-change", renderQueue);
@@ -549,6 +588,7 @@ async function renderAnalytics() {
 }
 
 renderQueue();
+renderStats();
 
 // Shoelace's autoloader swallows component-registration failures silently
 // (no console error even when every <sl-*> element fails to upgrade — this

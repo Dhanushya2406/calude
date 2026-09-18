@@ -47,6 +47,17 @@ As of v1.6.0, the whole dashboard uses Shoelace components — tabs (`sl-tab-gro
 
 One class (`.watch-btn`) is intentionally still used by both a couple of plain `<a>`/`<button>` elements (the Watch-tab error fallback panels) *and* an `<sl-button>` in the Queue — this is safe, not an oversight: Shadow DOM encapsulation means non-part-scoped rules like `background`/`padding` on the host element are inert no-ops for the `sl-button`, while they still work normally on the plain elements.
 
+### v1.7.0 — sidebar layout + stat cards
+The first Shoelace pass (v1.5.0/v1.6.0) got the *components* right but not the actual visual design — flat single-column layout, no hierarchy, no shadows. v1.7.0 restructures around a real dashboard pattern (sidebar nav + stat cards + card shadows), closer to typical modern SaaS admin UIs:
+- `sl-tab-group[placement="start"]` now renders as a **left sidebar** (220px), not top tabs — the brand and a "Sync now" button (pinned to the bottom via `margin-top: auto`) are slotted into `slot="nav"` alongside the `sl-tab` elements themselves, since Shoelace's nav slot will render arbitrary content, not just tabs.
+- Nav icons are emoji (📥▶️🕐📊), matching the emoji-forward style already established elsewhere (🍿✓📝✨) rather than pulling in an icon font/library.
+- Each tab-panel (except Watch) now has a real `<h1>` + subtitle page header, instead of relying on the sidebar label alone.
+- New stat-card row at the top of Queue (`renderStats()` in dashboard.js): in-queue count, watched count, hours consumed, notes+highlights captured. Recomputes on any relevant `chrome.storage.onChanged` event (queue/notes/highlights/analyticsTotals), not just queue.
+- All `sl-card` instances now get a consistent shadow + 14px radius globally (`sl-card::part(base) { border-radius: var(--radius); box-shadow: var(--shadow); }` in dashboard.css) instead of the flat-bordered look from the first Shoelace pass.
+
+### YouTube Premium ad-free playback (v1.7.0)
+`docs/player.html` switched its embed domain from `youtube-nocookie.com` to plain `youtube.com`. The nocookie domain deliberately never sends cookies, so it can never recognize a logged-in/Premium session and always shows ads regardless of the viewer's actual account status — that was the real cause, not a bug in Snackable's code. Plain `youtube.com` can honor Premium ad-free playback, but only if the viewer is logged into that Google account in the same Chrome browser, and only if Chrome's current third-party cookie policy allows the relay page (`dhanushya2406.github.io`) to see that login state when embedding YouTube — this part is genuinely untested/unconfirmed, not guaranteed.
+
 ### Storage shape (currently `chrome.storage.local` — see Known Issue)
 ```
 queue: [{ id, title, channel, url, category, addedAt, watched, watchedAt, durationSec, embeddable }]

@@ -10,18 +10,29 @@
 </head>
 <body>
   <div class="app">
-    <header class="topbar">
-      <div class="brand">🍿 Snackable</div>
-      <sl-button id="syncNowBtn" size="small" class="sync-btn">Sync now</sl-button>
-    </header>
-
-    <sl-tab-group id="mainTabs" class="main-tabs" placement="top">
-      <sl-tab slot="nav" panel="queue">Queue</sl-tab>
-      <sl-tab slot="nav" panel="watch">Watch</sl-tab>
-      <sl-tab slot="nav" panel="history">History</sl-tab>
-      <sl-tab slot="nav" panel="analytics">Analytics</sl-tab>
+    <sl-tab-group id="mainTabs" class="main-tabs" placement="start">
+      <div slot="nav" class="sidebar-brand">
+        <span class="sidebar-brand-icon">🍿</span>
+        <span class="sidebar-brand-name">Snackable</span>
+      </div>
+      <sl-tab slot="nav" panel="queue"><span class="nav-icon">📥</span> Queue</sl-tab>
+      <sl-tab slot="nav" panel="watch"><span class="nav-icon">▶️</span> Watch</sl-tab>
+      <sl-tab slot="nav" panel="history"><span class="nav-icon">🕐</span> History</sl-tab>
+      <sl-tab slot="nav" panel="analytics"><span class="nav-icon">📊</span> Analytics</sl-tab>
+      <div slot="nav" class="sidebar-footer">
+        <sl-button id="syncNowBtn" size="small">↻ Sync now</sl-button>
+      </div>
 
       <sl-tab-panel name="queue">
+        <div class="page-header">
+          <div>
+            <h1>Queue</h1>
+            <p class="page-subtitle">Curated from your YouTube Watch Later — consume with intent.</p>
+          </div>
+        </div>
+
+        <div class="stat-row" id="statRow"></div>
+
         <div class="session-bar">
           <label>I have</label>
           <sl-select id="sessionMinutes" value="0" size="small" class="session-select">
@@ -72,10 +83,22 @@
       </sl-tab-panel>
 
       <sl-tab-panel name="history">
+        <div class="page-header">
+          <div>
+            <h1>History</h1>
+            <p class="page-subtitle">Everything you've actually watched, with your notes and highlights attached.</p>
+          </div>
+        </div>
         <div id="historyList" class="queue-list"></div>
       </sl-tab-panel>
 
       <sl-tab-panel name="analytics">
+        <div class="page-header">
+          <div>
+            <h1>Analytics</h1>
+            <p class="page-subtitle">Where your watch time actually goes, by category.</p>
+          </div>
+        </div>
         <sl-card class="analytics-summary-card">
           <div id="analyticsSummary" class="analytics-summary"></div>
         </sl-card>
@@ -83,7 +106,7 @@
       </sl-tab-panel>
     </sl-tab-group>
 
-    <div class="version-footer">v1.6.0 · full Shoelace redesign</div>
+    <div class="version-footer">v1.7.0 · sidebar redesign</div>
   </div>
 
   <script src="dashboard.js"></script>
