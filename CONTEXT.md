@@ -123,6 +123,13 @@ This reverses the v1.7.0–v1.9.1 sidebar direction back to a two-row top nav:
 
 Page-level content (stat rows, page headers, card grids) is unaffected — only the nav chrome changed. `.sidebar-brand`/`.nav-icon`/`.sidebar-footer` classes from the sidebar era are gone from both HTML and CSS, not just hidden.
 
+### v2.0.1 — the indicator styling in v2.0.0 was mostly a no-op, fixed properly
+Checked Shoelace's actual `tab-group` source (`vendor/shoelace/chunks/chunk.GYJIQCRZ.js`) instead of guessing at part names. Finding: `active-tab-indicator` is **not** rendered via `background`/`height` on that part at all — Shoelace draws it as a `border-bottom: solid var(--track-width) var(--indicator-color)` (for top placement), positioned by JS setting `style.translate`/`style.width` directly (see `tab-group.component`'s `syncIndicator()`-equivalent, around the `this.indicator.style.width/translate` assignments). v2.0.0's `::part(active-tab-indicator) { background: var(--accent); height: 2px; }` did nothing — the color/thickness visible were Shoelace's own defaults (`--sl-color-primary-600` from the theme remap, `--track-width: 2px`) by coincidence, not that rule.
+
+Correct fix: set `--indicator-color`/`--track-width` as custom properties on `.main-tabs` itself (the host element — custom properties cross the shadow boundary by design, unlike `background`/`height` which the shadow template never reads for this part). For the animation itself, Shoelace's own base stylesheet already transitions `translate`/`width` using its `--sl-transition-fast` token by default — `::part(active-tab-indicator) { transition: ... }` **does** correctly override that (part-selectors from light DOM can override shadow-internal rules for that part), so the transition-tuning part of v2.0.0 was legitimate; only the color/thickness properties were the no-op. Landed on `.38s cubic-bezier(.65, 0, .35, 1)` targeting exactly `translate`/`width` (matching what Shoelace's JS actually changes — no `transform`/`height` in the list this time, since those aren't the properties being set). Also added a `prefers-reduced-motion: reduce` override since I was touching this rule anyway.
+
+**Lesson for next time touching vendored Shoelace internals**: check `vendor/shoelace/chunks/*.js` for the component's actual JS/CSS before writing `::part()` overrides, rather than assuming a part behaves like a plain styled div — several Shoelace parts (this indicator included) render via CSS custom properties or borders rather than the properties you'd naively reach for.
+
 ## How I want to work on this
 - Move fast, keep it simple — no over-engineering, no unnecessary infra
 - Explain trade-offs plainly before building, don't just execute
