@@ -24,21 +24,20 @@ let playbackConfirmed = false;
 let pendingErrorTimer = null;
 
 // ---------- Tabs ----------
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(btn.dataset.tab).classList.add("active");
-    if (btn.dataset.tab === "analytics") renderAnalytics();
-    if (btn.dataset.tab === "history") renderHistory();
-  });
+const mainTabs = document.getElementById("mainTabs");
+mainTabs.addEventListener("sl-tab-show", (e) => {
+  if (e.detail.name === "analytics") renderAnalytics();
+  if (e.detail.name === "history") renderHistory();
 });
 
 document.getElementById("syncNowBtn").addEventListener("click", async (e) => {
-  e.target.textContent = "Syncing…";
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.loading = true;
+  btn.textContent = "Syncing…";
   await chrome.runtime.sendMessage({ type: "SNACKABLE_SYNC_NOW" });
-  e.target.textContent = "Sync now";
+  btn.loading = false;
+  btn.textContent = original;
   renderQueue();
 });
 
@@ -47,8 +46,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // ---------- Queue ----------
-document.getElementById("sessionMinutes").addEventListener("change", renderQueue);
-document.getElementById("hideNonEmbeddable").addEventListener("change", renderQueue);
+document.getElementById("sessionMinutes").addEventListener("sl-change", renderQueue);
+document.getElementById("hideNonEmbeddable").addEventListener("sl-change", renderQueue);
 
 async function renderQueue() {
   const { queue = [] } = await chrome.storage.local.get("queue");
@@ -60,9 +59,10 @@ async function renderQueue() {
 
   if (unwatched.length === 0) {
     list.innerHTML = `<div class="empty-state">Nothing here yet. Add a video to YouTube's Watch Later and it'll show up on the next sync.</div>`;
-    fitCount.textContent = "";
+    fitCount.style.display = "none";
     return;
   }
+  fitCount.style.display = "";
 
   const hideNonEmbed = document.getElementById("hideNonEmbeddable").checked;
   const sessionMin = parseInt(document.getElementById("sessionMinutes").value, 10);
@@ -97,37 +97,36 @@ async function renderQueue() {
     fitCount.textContent = `— ${filtered.length} video${filtered.length !== 1 ? "s" : ""}`;
   }
 
-  shown.forEach((v) => {
-    const row = document.createElement("div");
-    row.className = "queue-item";
+  list.innerHTML = shown
+    .map((v) => {
+      const embedBadge = v.embeddable === false
+        ? `<sl-badge variant="warning" pill title="Embedding disabled by creator">⊘ No embed</sl-badge>`
+        : "";
+      const durLabel = v.durationSec
+        ? `<span class="duration-label">${formatDuration(v.durationSec)}</span>`
+        : "";
 
-    const embedBadge = v.embeddable === false
-      ? `<span class="badge badge-nonembed" title="Embedding disabled by creator">⊘ No embed</span>`
-      : "";
-    const durLabel = v.durationSec
-      ? `<span class="duration-label">${formatDuration(v.durationSec)}</span>`
-      : "";
+      return `
+        <sl-card class="queue-item">
+          <div class="thumb-wrap">
+            <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
+            ${durLabel}
+          </div>
+          <div class="queue-item-info">
+            <h4>${escapeHtml(v.title)}</h4>
+            <span class="muted">${escapeHtml(v.channel)}</span>
+            ${embedBadge}
+          </div>
+          <sl-select data-id="${v.id}" size="small" value="${escapeHtml(v.category)}" class="category-select">
+            ${CATEGORIES.map((c) => `<sl-option value="${escapeHtml(c)}">${escapeHtml(c)}</sl-option>`).join("")}
+          </sl-select>
+          <sl-button data-id="${v.id}" variant="primary" size="small" class="watch-btn">Watch</sl-button>
+        </sl-card>`;
+    })
+    .join("");
 
-    row.innerHTML = `
-      <div class="thumb-wrap">
-        <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
-        ${durLabel}
-      </div>
-      <div class="queue-item-info">
-        <h4>${escapeHtml(v.title)}</h4>
-        <span class="muted">${escapeHtml(v.channel)}</span>
-        ${embedBadge}
-      </div>
-      <select data-id="${v.id}">
-        ${CATEGORIES.map((c) => `<option ${c === v.category ? "selected" : ""}>${c}</option>`).join("")}
-      </select>
-      <button class="watch-btn" data-id="${v.id}">Watch</button>
-    `;
-    list.appendChild(row);
-  });
-
-  list.querySelectorAll("select").forEach((sel) => {
-    sel.addEventListener("change", async (e) => {
+  list.querySelectorAll("sl-select").forEach((sel) => {
+    sel.addEventListener("sl-change", async (e) => {
       const { queue = [] } = await chrome.storage.local.get("queue");
       const v = queue.find((x) => x.id === e.target.dataset.id);
       if (v) v.category = e.target.value;
@@ -172,7 +171,7 @@ function openWatch(video) {
   clearTimeout(pendingErrorTimer);
   pendingErrorTimer = null;
 
-  document.querySelector('[data-tab="watch"]').click();
+  mainTabs.show("watch");
   document.getElementById("watchEmpty").style.display = "none";
   document.getElementById("watchActive").style.display = "flex";
   document.getElementById("watchTitle").textContent = video.title;
@@ -353,7 +352,7 @@ document.getElementById("markWatchedBtn").addEventListener("click", async () => 
   currentVideo = null;
   document.getElementById("watchActive").style.display = "none";
   document.getElementById("watchEmpty").style.display = "block";
-  document.querySelector('[data-tab="queue"]').click();
+  mainTabs.show("queue");
 });
 
 // ---------- Notes ----------
@@ -471,35 +470,34 @@ async function renderHistory() {
     return;
   }
 
-  list.innerHTML = "";
-  watched.forEach((v) => {
-    const noteCount = (notes[v.id] || []).length;
-    const hlCount = (highlights[v.id] || []).length;
-    const watchedDate = v.watchedAt ? new Date(v.watchedAt).toLocaleDateString() : "";
-    const durLabel = v.durationSec ? formatDuration(v.durationSec) : "";
+  list.innerHTML = watched
+    .map((v) => {
+      const noteCount = (notes[v.id] || []).length;
+      const hlCount = (highlights[v.id] || []).length;
+      const watchedDate = v.watchedAt ? new Date(v.watchedAt).toLocaleDateString() : "";
+      const durLabel = v.durationSec ? formatDuration(v.durationSec) : "";
 
-    const row = document.createElement("div");
-    row.className = "queue-item history-item";
-    row.innerHTML = `
-      <div class="thumb-wrap">
-        <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
-        ${durLabel ? `<span class="duration-label">${durLabel}</span>` : ""}
-      </div>
-      <div class="queue-item-info">
-        <h4>${escapeHtml(v.title)}</h4>
-        <span class="muted">${escapeHtml(v.channel)}</span>
-        <div class="history-meta">
-          <span class="badge badge-cat">${escapeHtml(v.category)}</span>
-          ${noteCount ? `<span class="badge badge-notes">📝 ${noteCount} note${noteCount !== 1 ? "s" : ""}</span>` : ""}
-          ${hlCount ? `<span class="badge badge-hl">✨ ${hlCount}</span>` : ""}
-          ${watchedDate ? `<span class="muted">${watchedDate}</span>` : ""}
-        </div>
-      </div>
-      <button class="review-btn" data-id="${v.id}">Review</button>
-      <button class="unwatch-btn" data-id="${v.id}" title="Move back to queue">↩</button>
-    `;
-    list.appendChild(row);
-  });
+      return `
+        <sl-card class="queue-item history-item">
+          <div class="thumb-wrap">
+            <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="">
+            ${durLabel ? `<span class="duration-label">${durLabel}</span>` : ""}
+          </div>
+          <div class="queue-item-info">
+            <h4>${escapeHtml(v.title)}</h4>
+            <span class="muted">${escapeHtml(v.channel)}</span>
+            <div class="history-meta">
+              <sl-badge variant="neutral" pill>${escapeHtml(v.category)}</sl-badge>
+              ${noteCount ? `<sl-badge variant="primary" pill>📝 ${noteCount} note${noteCount !== 1 ? "s" : ""}</sl-badge>` : ""}
+              ${hlCount ? `<sl-badge variant="warning" pill>✨ ${hlCount}</sl-badge>` : ""}
+              ${watchedDate ? `<span class="muted">${watchedDate}</span>` : ""}
+            </div>
+          </div>
+          <sl-button data-id="${v.id}" size="small" class="review-btn">Review</sl-button>
+          <sl-button data-id="${v.id}" size="small" class="unwatch-btn" title="Move back to queue">↩</sl-button>
+        </sl-card>`;
+    })
+    .join("");
 
   list.querySelectorAll(".review-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -541,11 +539,11 @@ async function renderAnalytics() {
     .sort((a, b) => b[1] - a[1])
     .map(
       ([cat, secs]) => `
-      <div class="bar-row">
+      <sl-card class="bar-row">
         <div class="bar-label">${escapeHtml(cat)}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${(secs / maxVal) * 100}%"></div></div>
+        <sl-progress-bar value="${Math.round((secs / maxVal) * 100)}" class="bar-track"></sl-progress-bar>
         <div class="bar-value">${(secs / 3600).toFixed(1)}h</div>
-      </div>`
+      </sl-card>`
     )
     .join("");
 }
