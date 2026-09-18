@@ -551,3 +551,16 @@ async function renderAnalytics() {
 }
 
 renderQueue();
+
+// Shoelace's autoloader swallows component-registration failures silently
+// (no console error even when every <sl-*> element fails to upgrade — this
+// bit us once already, see git history around v1.5.1). This is a canary:
+// if sl-button still isn't defined after a few seconds, say so loudly.
+setTimeout(() => {
+  if (!customElements.get("sl-button")) {
+    console.error(
+      "Snackable: Shoelace components never registered — buttons/cards will render unstyled. " +
+      "Check that vendor/shoelace/ files exist and that dashboard.html's autoloader <script src> is a root-relative path (starts with '/')."
+    );
+  }
+}, 3000);
