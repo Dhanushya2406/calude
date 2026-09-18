@@ -10,6 +10,9 @@ const CATEGORIES = ["Uncategorized", "Design", "Business", "Tech", "Growth", "Pe
 let currentVideo = null;
 let currentPlayerTime = 0;
 let pendingHighlightStart = null;
+let watchLoadToken = 0;
+let playbackConfirmed = false;
+let pendingErrorTimer = null;
 
 // ---------- Tabs ----------
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -155,6 +158,11 @@ function formatTime(sec) {
 function openWatch(video) {
   currentVideo = video;
   pendingHighlightStart = null;
+  playbackConfirmed = false;
+  const token = ++watchLoadToken;
+  clearTimeout(pendingErrorTimer);
+  pendingErrorTimer = null;
+
   document.querySelector('[data-tab="watch"]').click();
   document.getElementById("watchEmpty").style.display = "none";
   document.getElementById("watchActive").style.display = "flex";
@@ -193,17 +201,33 @@ window.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
     if (data.info && typeof data.info.currentTime === "number") {
       currentPlayerTime = data.info.currentTime;
+      // Any real telemetry from the player means the postMessage channel is
+      // alive and the video isn't actually stuck, regardless of stray error
+      // events fired earlier during the handshake.
+      playbackConfirmed = true;
+      clearTimeout(pendingErrorTimer);
+      pendingErrorTimer = null;
     }
     if (data.event === "onError") {
       const code = data.info;
+      const token = watchLoadToken;
       console.warn("Snackable: YouTube player onError", code, "video:", currentVideo?.id);
-      // 101/150 = owner disabled embedding (the only case this actually means).
-      // 100 = video removed/private. 2/5/152/153/other = transient or referer-related
-      // playback failures (see background.js's Referer-fix comment) — NOT the same thing.
+      // 101/150 = owner disabled embedding — unambiguous, documented codes.
+      // 100 = video removed/private — also unambiguous.
+      // Everything else (2/5/152/153/other) isn't reliably fatal in this
+      // hand-rolled setup (no official iframe_api — MV3 blocks loading it),
+      // so wait for real playback telemetry before treating it as broken.
       if (code === 101 || code === 150) {
         showEmbedDisabledFallback();
-      } else {
+      } else if (code === 100) {
         showPlaybackErrorFallback(code);
+      } else {
+        clearTimeout(pendingErrorTimer);
+        pendingErrorTimer = setTimeout(() => {
+          if (token === watchLoadToken && !playbackConfirmed) {
+            showPlaybackErrorFallback(code);
+          }
+        }, 4000);
       }
     }
   } catch (_) {}
