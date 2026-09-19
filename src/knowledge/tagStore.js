@@ -8,12 +8,19 @@
 //
 // Storage shape (chrome.storage.local):
 //   knowledgeTags:  { [tagId]: { id, name, normalizedName, usageCount, createdAt } }
-//   knowledgeNotes: { [noteId]: { id, title, bodyHTML, bodyText, tagIds: string[], createdAt, updatedAt } }
+//   knowledgeNotes: { [noteId]: { id, title, bodyHTML, bodyText, tagIds: string[], links: string[], createdAt, updatedAt } }
 //
-// tagIds live directly on each note (denormalized) rather than in a
-// separate reverse-index — "which notes use tag X" is a filter over real
-// note.tagIds arrays, not a hardcoded relationship, satisfying "derive
-// from actual note/tag/link data, don't hardcode it in the UI."
+// tagIds/links live directly on each note (denormalized) rather than in a
+// separate reverse-index — "which notes use tag X" / "which notes link to
+// note Y" are filters over real note.tagIds/note.links arrays, not a
+// hardcoded relationship, satisfying "derive from actual note/tag/link
+// data, don't hardcode it in the UI."
+//
+// tagIds and links are kept as two SEPARATE arrays, never merged — a
+// direct [[note]] link and a shared #tag are different relationship
+// types (Obsidian's actual model), and graph.js reads them into distinct
+// edge types ("internal-link" vs "tag") rather than collapsing shared
+// tags into fake direct note-to-note edges.
 
 function normalizeTagName(name) {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -39,6 +46,18 @@ async function queryTags(prefix) {
   return Object.values(tags)
     .filter((t) => t.normalizedName.startsWith(norm))
     .sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name));
+}
+
+// For the "[[" note-link suggestion — matches on title substring (not just
+// prefix, since "[[brain" should reasonably find "Learning about brain"
+// too), case-insensitive.
+async function queryNoteTitles(query, excludeNoteId) {
+  const notes = await getNotes();
+  const q = (query || "").trim().toLowerCase();
+  return Object.values(notes)
+    .filter((n) => n.id !== excludeNoteId && (!q || n.title.toLowerCase().includes(q)))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 8);
 }
 
 // Finds an existing tag by normalized name, or creates one. Does NOT bump
@@ -72,8 +91,9 @@ async function bumpTagUsage(tagId, delta) {
 
 // Saves (creates or updates) a note and reconciles tag usageCounts against
 // whatever tag set it previously had, so editing a note's tags doesn't
-// leak stale counts.
-async function saveNote({ id, title, bodyHTML, bodyText, tagIds }) {
+// leak stale counts. `links` (note IDs referenced via [[..]]) is stored
+// separately from `tagIds` — see the note at the top of this file.
+async function saveNote({ id, title, bodyHTML, bodyText, tagIds, links }) {
   const notes = await getNotes();
   const existing = id ? notes[id] : null;
   const previousTagIds = existing?.tagIds || [];
@@ -83,6 +103,7 @@ async function saveNote({ id, title, bodyHTML, bodyText, tagIds }) {
     bodyHTML,
     bodyText,
     tagIds: [...new Set(tagIds)],
+    links: [...new Set(links || [])],
     createdAt: existing?.createdAt || Date.now(),
     updatedAt: Date.now(),
   };
@@ -107,6 +128,7 @@ export const tagStore = {
   getTags,
   getNotes,
   queryTags,
+  queryNoteTitles,
   getOrCreateTag,
   saveNote,
   getNotesForTag,

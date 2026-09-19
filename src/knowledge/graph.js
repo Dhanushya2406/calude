@@ -1,142 +1,255 @@
 // Knowledge graph: Graphology for the data model, Sigma.js for rendering —
 // per the explicit instruction not to hand-build a graph renderer.
 //
-// Nodes are bipartite: "note" and "tag" (per the data model in the spec —
-// nodes optionally include tags "when useful", which for a tag-driven
-// graph is always). Edges are type:"tag", connecting a note to each tag it
-// actually contains — read directly off note.tagIds, nothing hardcoded.
-// type:"link" edges (Obsidian-style [[note links]]) aren't populated yet
-// (no [[..]] parsing built in this phase) but the shape already supports
-// them without changes — see buildGraph's edge-adding loop.
+// Reproduces Obsidian's actual relationship model, not a generic tag
+// graph: two DISTINCT edge types that are never collapsed into each
+// other —
+//   "internal-link": a direct note -> note edge from an actual [[..]]
+//                     reference (directional — arrows optional)
+//   "tag":           a note -> tag edge, for each #tag a note actually
+//                     contains. Two notes sharing a tag are NEVER wired
+//                     directly to each other; they're both wired to the
+//                     SAME tag node, and appear connected only through it.
+// Both come straight from real note.links / note.tagIds arrays — nothing
+// here is inferred or hardcoded.
 import Graph from "graphology";
 import Sigma from "sigma";
+import EdgeArrowProgram from "sigma/rendering/webgl/programs/edge.arrow.js";
 
 const NOTE_COLOR = "#d97757"; // --accent
-const TAG_COLOR = "#7ca8d9"; // one of the existing CATEGORY_COLORS
-const DIM_COLOR = "#3a3126"; // --border, used to fade unrelated nodes/edges
+const TAG_COLOR = "#7ca8d9";
+const DIM_COLOR = "#3a3126"; // --border
 
-// mode: "global" | "tag" | "note". focusId: tagId or noteId for the
-// non-global modes. Builds a fresh graph each time rather than
-// hiding/showing nodes on one long-lived instance — simpler to reason
-// about correctly than incremental Sigma state, and these graphs are small.
-export function buildGraph({ notes, tags, mode = "global", focusId = null }) {
-  const graph = new Graph();
+// Builds the FULL adjacency (every note/tag, every real edge) once; both
+// global and local/depth-limited views are derived from this same
+// structure rather than two separate code paths, so "local graph" is
+// never at risk of showing a different relationship model than global.
+function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {}) {
+  const graph = new Graph({ multi: false, type: "mixed" });
   const noteList = Object.values(notes);
   const tagList = Object.values(tags);
 
-  const relevantNoteIds =
-    mode === "tag" && focusId
-      ? new Set(noteList.filter((n) => n.tagIds.includes(focusId)).map((n) => n.id))
-      : mode === "note" && focusId
-        ? new Set([focusId])
-        : null; // null = no filter (global)
-
   for (const note of noteList) {
-    if (relevantNoteIds && !relevantNoteIds.has(note.id)) continue;
-    graph.addNode(`note:${note.id}`, {
-      type: "note",
-      refId: note.id,
-      label: note.title,
-      size: 8,
-      color: NOTE_COLOR,
-      x: Math.random(),
-      y: Math.random(),
-    });
+    graph.addNode(`note:${note.id}`, { type: "note", refId: note.id, label: note.title });
   }
 
-  const usedTagIds = new Set();
-  for (const note of noteList) {
-    if (relevantNoteIds && !relevantNoteIds.has(note.id)) continue;
-    for (const tagId of note.tagIds) usedTagIds.add(tagId);
-  }
-  if (mode === "tag" && focusId) usedTagIds.add(focusId);
-
-  for (const tag of tagList) {
-    if (!usedTagIds.has(tag.id)) continue;
-    if (mode === "note" && focusId) {
-      // note-focused: only show tags actually on that note
-      const note = notes[focusId];
-      if (!note?.tagIds.includes(tag.id)) continue;
+  if (showTags) {
+    const usedTagIds = new Set();
+    for (const note of noteList) for (const t of note.tagIds) usedTagIds.add(t);
+    for (const tag of tagList) {
+      if (!usedTagIds.has(tag.id)) continue;
+      graph.addNode(`tag:${tag.id}`, { type: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
     }
-    graph.addNode(`tag:${tag.id}`, {
-      type: "tag",
-      refId: tag.id,
-      label: `#${tag.name}`,
-      size: 6 + Math.min(tag.usageCount, 10),
-      color: TAG_COLOR,
-      x: Math.random(),
-      y: Math.random(),
-    });
-  }
-
-  for (const note of noteList) {
-    const noteNodeId = `note:${note.id}`;
-    if (!graph.hasNode(noteNodeId)) continue;
-    for (const tagId of note.tagIds) {
-      const tagNodeId = `tag:${tagId}`;
-      if (!graph.hasNode(tagNodeId)) continue;
-      const edgeId = `${noteNodeId}->${tagNodeId}`;
-      if (!graph.hasEdge(edgeId)) {
-        graph.addEdgeWithKey(edgeId, noteNodeId, tagNodeId, { type: "tag", color: "#3a3126", size: 1 });
+    for (const note of noteList) {
+      const noteKey = `note:${note.id}`;
+      for (const tagId of note.tagIds) {
+        const tagKey = `tag:${tagId}`;
+        if (!graph.hasNode(tagKey)) continue;
+        const edgeKey = `${noteKey}--tag--${tagKey}`;
+        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { type: "tag" });
       }
     }
-    // type:"link" edges (Obsidian-style [[note]] references) would be
-    // added here the same way once note bodies are parsed for them —
-    // graph.addEdgeWithKey(id, `note:${a}`, `note:${b}`, { type: "link" }).
   }
 
-  // Simple circular layout — these graphs are small (a handful of notes/
-  // tags in this phase); graphology-layout-forceatlas2 is installed and
-  // ready to swap in (`import forceAtlas2 from "graphology-layout-forceatlas2"`,
-  // `forceAtlas2.assign(graph, { iterations: 100 })`) once graphs are large
-  // enough that circular placement stops being legible.
-  const nodes = graph.nodes();
-  nodes.forEach((n, i) => {
-    const angle = (i / Math.max(nodes.length, 1)) * 2 * Math.PI;
-    graph.setNodeAttribute(n, "x", Math.cos(angle));
-    graph.setNodeAttribute(n, "y", Math.sin(angle));
-  });
+  if (showLinks) {
+    for (const note of noteList) {
+      const sourceKey = `note:${note.id}`;
+      for (const targetId of note.links || []) {
+        const targetKey = `note:${targetId}`;
+        if (!graph.hasNode(targetKey)) continue; // linked note may have been deleted
+        const edgeKey = `${sourceKey}--link--${targetKey}`;
+        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { type: "internal-link" });
+      }
+    }
+  }
 
   return graph;
 }
 
-// Renders `graph` into `container` with hover-highlight/dim and click
-// handling. Returns the Sigma instance — caller must call .kill() on it
-// before rendering a new graph into the same container (mode switches).
-export function renderGraph(container, graph, { onNodeClick } = {}) {
+function bfsWithinDepth(fullGraph, startKey, depth) {
+  const visited = new Set([startKey]);
+  let frontier = [startKey];
+  for (let d = 0; d < depth && frontier.length; d++) {
+    const next = [];
+    for (const key of frontier) {
+      fullGraph.forEachNeighbor(key, (neighbor) => {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          next.push(neighbor);
+        }
+      });
+    }
+    frontier = next;
+  }
+  return visited;
+}
+
+// mode: "global" | "local". For "local", focusKey is "note:<id>" or
+// "tag:<id>" and depth controls how many hops out to include (depth 1 =
+// direct connections only, depth 2 = one more level out, etc. — matches
+// "For depth 2: Show relationships one more level out.").
+export function buildGraph({ notes, tags, mode = "global", focusKey = null, depth = 1, filters = {} }) {
+  const { showTags = true, showLinks = true, search = "" } = filters;
+  const full = buildFullGraph(notes, tags, { showTags, showLinks });
+
+  let keep = null; // null = keep everything (global, no search)
+  if (mode === "local" && focusKey && full.hasNode(focusKey)) {
+    keep = bfsWithinDepth(full, focusKey, depth);
+  }
+
+  const searchNorm = search.trim().toLowerCase();
+  if (searchNorm) {
+    const matches = new Set();
+    full.forEachNode((key, attrs) => {
+      if (attrs.type === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches.add(key);
+    });
+    // Keep matched notes plus anything already in `keep` (if local mode),
+    // intersected — search narrows whatever scope (global or local) is
+    // already active rather than replacing it.
+    keep = keep ? new Set([...keep].filter((k) => matches.has(k) || full.getNodeAttribute(k, "type") === "tag")) : matches;
+  }
+
+  const view = new Graph({ multi: false, type: "mixed" });
+  full.forEachNode((key, attrs) => {
+    if (keep && !keep.has(key)) return;
+    view.addNode(key, { ...attrs });
+  });
+  full.forEachEdge((edgeKey, attrs, source, target) => {
+    if (!view.hasNode(source) || !view.hasNode(target)) return;
+    if (full.isDirected(edgeKey)) view.addDirectedEdgeWithKey(edgeKey, source, target, { ...attrs });
+    else view.addEdgeWithKey(edgeKey, source, target, { ...attrs });
+  });
+
+  // Prune tag nodes left with zero edges after search-filtering notes out
+  // from under them — an isolated tag chip adds nothing once none of its
+  // notes are in view.
+  if (searchNorm) {
+    view.forEachNode((key, attrs) => {
+      if (attrs.type === "tag" && view.degree(key) === 0) view.dropNode(key);
+    });
+  }
+
+  // Circular initial layout — small graphs, no forceAtlas2 needed yet
+  // (graphology-layout-forceatlas2 is installed and ready: `import
+  // forceAtlas2 from "graphology-layout-forceatlas2"; forceAtlas2.assign(view,
+  // { iterations: 100 })` once graphs are large enough that circular
+  // placement stops being legible).
+  const nodes = view.nodes();
+  nodes.forEach((n, i) => {
+    const angle = (i / Math.max(nodes.length, 1)) * 2 * Math.PI;
+    view.setNodeAttribute(n, "x", Math.cos(angle));
+    view.setNodeAttribute(n, "y", Math.sin(angle));
+  });
+
+  return view;
+}
+
+function styleGraph(graph, { nodeSizeScale = 1, linkThickness = 1, showArrows = true } = {}) {
+  graph.forEachNode((key, attrs) => {
+    const baseSize = attrs.type === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
+    graph.setNodeAttribute(key, "size", baseSize * nodeSizeScale);
+    graph.setNodeAttribute(key, "color", attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+  });
+  graph.forEachEdge((key, attrs) => {
+    graph.setEdgeAttribute(key, "size", (attrs.type === "internal-link" ? 1.4 : 1) * linkThickness);
+    graph.setEdgeAttribute(key, "color", attrs.type === "internal-link" ? "#5a4d3d" : "#3a3126");
+    // Only directed internal-link edges get an arrowhead; tag edges are
+    // conceptually non-directional (a note doesn't "point at" its tag any
+    // more than the tag "points at" the note) and stay plain lines even
+    // when arrows are toggled on.
+    graph.setEdgeAttribute(key, "type", showArrows && attrs.type === "internal-link" ? "arrow" : "line");
+  });
+}
+
+// Renders `graph` into `container`. Returns the Sigma instance — caller
+// must call .kill() before rendering a new graph into the same container
+// (mode/filter changes rebuild from scratch rather than mutating in place,
+// same reasoning as before: simpler to get right than incremental Sigma
+// state for graphs this small).
+export function renderGraph(container, graph, { onNodeClick, styleOptions, initialSelectedKey } = {}) {
+  styleGraph(graph, styleOptions);
+
   const sigma = new Sigma(graph, container, {
     renderLabels: true,
     labelColor: { color: "#f0e9df" },
     defaultEdgeColor: "#3a3126",
+    edgeProgramClasses: { arrow: EdgeArrowProgram },
   });
 
   let hoveredNode = null;
+  let selectedNode = initialSelectedKey && graph.hasNode(initialSelectedKey) ? initialSelectedKey : null;
 
-  function applyHoverState() {
-    graph.forEachNode((node) => {
-      const isNeighbor = hoveredNode && (node === hoveredNode || graph.areNeighbors(node, hoveredNode));
-      const dim = hoveredNode && !isNeighbor;
-      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : graph.getNodeAttribute(node, "type") === "tag" ? TAG_COLOR : NOTE_COLOR);
+  function applyFocusState() {
+    const focus = hoveredNode || selectedNode;
+    graph.forEachNode((node, attrs) => {
+      const isFocus = node === focus;
+      const isNeighbor = focus && graph.areNeighbors(node, focus);
+      const dim = focus && !isFocus && !isNeighbor;
+      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+      // "highlighted" is Sigma's actual supported mechanism for an
+      // enlarged/halo'd node treatment (also used below for the node
+      // being dragged) — there's no separate "borderColor" attribute the
+      // default node program reads, so this is the real way to keep the
+      // selected node visually distinct, not a made-up one.
+      graph.setNodeAttribute(node, "highlighted", node === selectedNode);
     });
     graph.forEachEdge((edge, attrs, source, target) => {
-      const dim = hoveredNode && source !== hoveredNode && target !== hoveredNode;
-      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : "#5a4d3d");
+      const dim = focus && source !== focus && target !== focus;
+      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.type === "internal-link" ? "#8a7a63" : "#5a4d3d");
     });
     sigma.refresh();
   }
 
   sigma.on("enterNode", ({ node }) => {
     hoveredNode = node;
-    applyHoverState();
+    applyFocusState();
   });
   sigma.on("leaveNode", () => {
     hoveredNode = null;
-    applyHoverState();
+    applyFocusState();
   });
   sigma.on("clickNode", ({ node }) => {
+    selectedNode = node;
+    applyFocusState();
     const attrs = graph.getNodeAttributes(node);
-    onNodeClick?.(attrs.type, attrs.refId);
+    onNodeClick?.(attrs.type, attrs.refId, node);
+  });
+  sigma.on("clickStage", () => {
+    selectedNode = null;
+    applyFocusState();
   });
 
+  // --- Node dragging (Sigma v2's documented drag pattern — no built-in
+  // API for this, has to be wired via the mouse captor directly) ---
+  let draggedNode = null;
+  let isDragging = false;
+
+  sigma.on("downNode", (e) => {
+    isDragging = true;
+    draggedNode = e.node;
+    graph.setNodeAttribute(draggedNode, "highlighted", true);
+  });
+  sigma.getMouseCaptor().on("mousemovebody", (e) => {
+    if (!isDragging || !draggedNode) return;
+    const pos = sigma.viewportToGraph(e);
+    graph.setNodeAttribute(draggedNode, "x", pos.x);
+    graph.setNodeAttribute(draggedNode, "y", pos.y);
+    e.preventSigmaDefault();
+    e.original.preventDefault();
+    e.original.stopPropagation();
+  });
+  sigma.getMouseCaptor().on("mouseup", () => {
+    // Re-derive "highlighted" from actual selection state (applyFocusState)
+    // rather than unconditionally clearing it — dragging the currently-
+    // selected node shouldn't un-select it once the drag ends.
+    isDragging = false;
+    draggedNode = null;
+    applyFocusState();
+  });
+  sigma.getMouseCaptor().on("mousedown", () => {
+    if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
+  });
+
+  applyFocusState();
   return sigma;
 }

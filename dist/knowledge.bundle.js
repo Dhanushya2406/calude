@@ -4730,8 +4730,8 @@ var require_edge_arrow = __commonJS({
     var edge_1 = require_edge();
     var edge_arrowHead_1 = __importDefault(require_edge_arrowHead());
     var edge_clamped_1 = __importDefault(require_edge_clamped());
-    var EdgeArrowProgram = (0, edge_1.createEdgeCompoundProgram)([edge_clamped_1.default, edge_arrowHead_1.default]);
-    exports.default = EdgeArrowProgram;
+    var EdgeArrowProgram2 = (0, edge_1.createEdgeCompoundProgram)([edge_clamped_1.default, edge_arrowHead_1.default]);
+    exports.default = EdgeArrowProgram2;
   }
 });
 
@@ -6174,6 +6174,11 @@ async function queryTags(prefix) {
   const norm = normalizeTagName(prefix || "");
   return Object.values(tags).filter((t) => t.normalizedName.startsWith(norm)).sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name));
 }
+async function queryNoteTitles(query, excludeNoteId) {
+  const notes = await getNotes();
+  const q = (query || "").trim().toLowerCase();
+  return Object.values(notes).filter((n) => n.id !== excludeNoteId && (!q || n.title.toLowerCase().includes(q))).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);
+}
 async function getOrCreateTag(rawName) {
   const normalizedName = normalizeTagName(rawName);
   if (!normalizedName) return null;
@@ -6197,7 +6202,7 @@ async function bumpTagUsage(tagId, delta) {
   tags[tagId].usageCount = Math.max(0, tags[tagId].usageCount + delta);
   await chrome.storage.local.set({ knowledgeTags: tags });
 }
-async function saveNote({ id, title, bodyHTML, bodyText, tagIds }) {
+async function saveNote({ id, title, bodyHTML, bodyText, tagIds, links }) {
   const notes = await getNotes();
   const existing = id ? notes[id] : null;
   const previousTagIds = existing?.tagIds || [];
@@ -6207,6 +6212,7 @@ async function saveNote({ id, title, bodyHTML, bodyText, tagIds }) {
     bodyHTML,
     bodyText,
     tagIds: [...new Set(tagIds)],
+    links: [...new Set(links || [])],
     createdAt: existing?.createdAt || Date.now(),
     updatedAt: Date.now()
   };
@@ -6227,6 +6233,7 @@ var tagStore = {
   getTags,
   getNotes,
   queryTags,
+  queryNoteTitles,
   getOrCreateTag,
   saveNote,
   getNotesForTag
@@ -25011,83 +25018,84 @@ var Mention = Node2.create({
 });
 
 // src/knowledge/editor.js
-function buildDropdown() {
+function buildDropdown(className) {
   const el = document.createElement("div");
-  el.className = "tag-suggest-menu";
+  el.className = className;
   document.body.appendChild(el);
   return el;
 }
-function renderList(el, items, selectedIndex, onPick) {
+function renderList(el, items, selectedIndex, onPick, itemClass, formatLabel) {
   el.innerHTML = items.map((item, i) => {
-    const label = item.isNew ? `Create "#${item.name}"` : `#${item.name}`;
     const usage = !item.isNew && item.usageCount ? `<span class="tag-suggest-count">${item.usageCount}</span>` : "";
-    return `<div class="tag-suggest-item${i === selectedIndex ? " active" : ""}" data-idx="${i}">${label}${usage}</div>`;
+    return `<div class="${itemClass}${i === selectedIndex ? " active" : ""}" data-idx="${i}">${formatLabel(item)}${usage}</div>`;
   }).join("");
-  el.querySelectorAll(".tag-suggest-item").forEach((row) => {
+  el.querySelectorAll(`.${itemClass}`).forEach((row) => {
     row.addEventListener("mousedown", (e) => {
       e.preventDefault();
       onPick(items[Number(row.dataset.idx)]);
     });
   });
 }
-function suggestionRender() {
-  let el = null;
-  let items = [];
-  let selectedIndex = 0;
-  let currentProps = null;
-  const position = (props) => {
-    const rect = props.clientRect?.();
-    if (!rect || !el) return;
-    el.style.left = `${rect.left + window.scrollX}px`;
-    el.style.top = `${rect.bottom + window.scrollY + 4}px`;
-  };
-  const pick = async (item) => {
-    const tag = item.isNew ? await tagStore.getOrCreateTag(item.name) : item;
-    if (tag) currentProps.command({ id: tag.id, label: tag.name });
-  };
-  return {
-    onStart(props) {
-      currentProps = props;
-      items = props.items;
-      selectedIndex = 0;
-      el = buildDropdown();
-      renderList(el, items, selectedIndex, pick);
-      position(props);
-    },
-    onUpdate(props) {
-      currentProps = props;
-      items = props.items;
-      selectedIndex = 0;
-      renderList(el, items, selectedIndex, pick);
-      position(props);
-    },
-    onKeyDown(props) {
-      if (!el) return false;
-      if (props.event.key === "Escape") {
-        el.remove();
+function makeSuggestionRender({ menuClass, itemClass, formatLabel, resolvePick }) {
+  return function suggestionRender() {
+    let el = null;
+    let items = [];
+    let selectedIndex = 0;
+    let currentProps = null;
+    const position = (props) => {
+      const rect = props.clientRect?.();
+      if (!rect || !el) return;
+      el.style.left = `${rect.left + window.scrollX}px`;
+      el.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    };
+    const pick = async (item) => {
+      const resolved = await resolvePick(item);
+      if (resolved) currentProps.command(resolved);
+    };
+    return {
+      onStart(props) {
+        currentProps = props;
+        items = props.items;
+        selectedIndex = 0;
+        el = buildDropdown(menuClass);
+        renderList(el, items, selectedIndex, pick, itemClass, formatLabel);
+        position(props);
+      },
+      onUpdate(props) {
+        currentProps = props;
+        items = props.items;
+        selectedIndex = 0;
+        renderList(el, items, selectedIndex, pick, itemClass, formatLabel);
+        position(props);
+      },
+      onKeyDown(props) {
+        if (!el) return false;
+        if (props.event.key === "Escape") {
+          el.remove();
+          el = null;
+          return true;
+        }
+        if (props.event.key === "ArrowDown") {
+          selectedIndex = (selectedIndex + 1) % Math.max(items.length, 1);
+          renderList(el, items, selectedIndex, pick, itemClass, formatLabel);
+          return true;
+        }
+        if (props.event.key === "ArrowUp") {
+          selectedIndex = (selectedIndex - 1 + items.length) % Math.max(items.length, 1);
+          renderList(el, items, selectedIndex, pick, itemClass, formatLabel);
+          return true;
+        }
+        if (props.event.key === "Enter") {
+          if (items[selectedIndex]) pick(items[selectedIndex]);
+          return true;
+        }
+        return false;
+      },
+      onExit() {
+        el?.remove();
         el = null;
-        return true;
       }
-      if (props.event.key === "ArrowDown") {
-        selectedIndex = (selectedIndex + 1) % Math.max(items.length, 1);
-        renderList(el, items, selectedIndex, pick);
-        return true;
-      }
-      if (props.event.key === "ArrowUp") {
-        selectedIndex = (selectedIndex - 1 + items.length) % Math.max(items.length, 1);
-        renderList(el, items, selectedIndex, pick);
-        return true;
-      }
-      if (props.event.key === "Enter") {
-        if (items[selectedIndex]) pick(items[selectedIndex]);
-        return true;
-      }
-      return false;
-    },
-    onExit() {
-      el?.remove();
-      el = null;
-    }
+    };
   };
 }
 async function tagItems({ query }) {
@@ -25098,7 +25106,37 @@ async function tagItems({ query }) {
   if (query && !hasExact) list.push({ isNew: true, name: query });
   return list;
 }
-function createNoteEditor(element, { onTagClick, content = "" } = {}) {
+var tagSuggestionRender = makeSuggestionRender({
+  menuClass: "tag-suggest-menu",
+  itemClass: "tag-suggest-item",
+  formatLabel: (item) => item.isNew ? `Create "#${item.name}"` : `#${item.name}`,
+  resolvePick: async (item) => {
+    const tag = item.isNew ? await tagStore.getOrCreateTag(item.name) : item;
+    return tag ? { id: tag.id, label: tag.name } : null;
+  }
+});
+function makeNoteLinkItems(currentNoteId) {
+  return async function noteLinkItems({ query }) {
+    const matches2 = await tagStore.queryNoteTitles(query, currentNoteId);
+    if (query && !matches2.some((n) => n.title.toLowerCase() === query.toLowerCase())) {
+      matches2.push({ isNew: true, title: query });
+    }
+    return matches2;
+  };
+}
+var noteLinkSuggestionRender = makeSuggestionRender({
+  menuClass: "note-link-suggest-menu",
+  itemClass: "tag-suggest-item",
+  formatLabel: (item) => item.isNew ? `Create note "${item.title}"` : item.title,
+  resolvePick: async (item) => {
+    if (item.isNew) {
+      const note = await tagStore.saveNote({ title: item.title, bodyHTML: "<p></p>", bodyText: "", tagIds: [], links: [] });
+      return { id: note.id, label: note.title };
+    }
+    return { id: item.id, label: item.title };
+  }
+});
+function createNoteEditor(element, { onTagClick, onNoteLinkClick, content = "", noteId = null } = {}) {
   const editor = new Editor({
     element,
     extensions: [
@@ -25112,125 +25150,219 @@ function createNoteEditor(element, { onTagClick, content = "" } = {}) {
           return `#${node.attrs.label}`;
         }
       }).configure({
-        suggestion: {
-          char: "#",
-          items: tagItems,
-          render: suggestionRender
+        suggestion: { char: "#", items: tagItems, render: tagSuggestionRender }
+      }),
+      Mention.extend({
+        name: "noteLink",
+        renderHTML({ node }) {
+          return ["span", { class: "note-link-mention", "data-note-id": node.attrs.id }, `[[${node.attrs.label}]]`];
+        },
+        renderText({ node }) {
+          return `[[${node.attrs.label}]]`;
         }
+      }).configure({
+        suggestion: { char: "[[", allowSpaces: true, items: makeNoteLinkItems(noteId), render: noteLinkSuggestionRender }
       })
     ],
     content
   });
   editor.view.dom.addEventListener("click", (e) => {
-    const el = e.target.closest(".tag-mention");
-    if (el && onTagClick) onTagClick(el.dataset.tagId);
+    const tagEl = e.target.closest(".tag-mention");
+    if (tagEl && onTagClick) return onTagClick(tagEl.dataset.tagId);
+    const linkEl = e.target.closest(".note-link-mention");
+    if (linkEl && onNoteLinkClick) return onNoteLinkClick(linkEl.dataset.noteId);
   });
   return editor;
 }
-function extractTagIds(editor) {
-  const ids = /* @__PURE__ */ new Set();
+function extractRelationships(editor) {
+  const tagIds = /* @__PURE__ */ new Set();
+  const links = /* @__PURE__ */ new Set();
   editor.state.doc.descendants((node) => {
-    if (node.type.name === "tag" && node.attrs.id) ids.add(node.attrs.id);
+    if (node.type.name === "tag" && node.attrs.id) tagIds.add(node.attrs.id);
+    if (node.type.name === "noteLink" && node.attrs.id) links.add(node.attrs.id);
   });
-  return [...ids];
+  return { tagIds: [...tagIds], links: [...links] };
 }
 
 // src/knowledge/graph.js
 var import_graphology = __toESM(require_graphology_umd_min());
 var import_sigma = __toESM(require_sigma2());
+var import_edge_arrow = __toESM(require_edge_arrow());
 var NOTE_COLOR = "#d97757";
 var TAG_COLOR = "#7ca8d9";
 var DIM_COLOR = "#3a3126";
-function buildGraph({ notes, tags, mode = "global", focusId = null }) {
-  const graph = new import_graphology.default();
+function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {}) {
+  const graph = new import_graphology.default({ multi: false, type: "mixed" });
   const noteList = Object.values(notes);
   const tagList = Object.values(tags);
-  const relevantNoteIds = mode === "tag" && focusId ? new Set(noteList.filter((n) => n.tagIds.includes(focusId)).map((n) => n.id)) : mode === "note" && focusId ? /* @__PURE__ */ new Set([focusId]) : null;
   for (const note of noteList) {
-    if (relevantNoteIds && !relevantNoteIds.has(note.id)) continue;
-    graph.addNode(`note:${note.id}`, {
-      type: "note",
-      refId: note.id,
-      label: note.title,
-      size: 8,
-      color: NOTE_COLOR,
-      x: Math.random(),
-      y: Math.random()
-    });
+    graph.addNode(`note:${note.id}`, { type: "note", refId: note.id, label: note.title });
   }
-  const usedTagIds = /* @__PURE__ */ new Set();
-  for (const note of noteList) {
-    if (relevantNoteIds && !relevantNoteIds.has(note.id)) continue;
-    for (const tagId of note.tagIds) usedTagIds.add(tagId);
-  }
-  if (mode === "tag" && focusId) usedTagIds.add(focusId);
-  for (const tag of tagList) {
-    if (!usedTagIds.has(tag.id)) continue;
-    if (mode === "note" && focusId) {
-      const note = notes[focusId];
-      if (!note?.tagIds.includes(tag.id)) continue;
+  if (showTags) {
+    const usedTagIds = /* @__PURE__ */ new Set();
+    for (const note of noteList) for (const t of note.tagIds) usedTagIds.add(t);
+    for (const tag of tagList) {
+      if (!usedTagIds.has(tag.id)) continue;
+      graph.addNode(`tag:${tag.id}`, { type: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
     }
-    graph.addNode(`tag:${tag.id}`, {
-      type: "tag",
-      refId: tag.id,
-      label: `#${tag.name}`,
-      size: 6 + Math.min(tag.usageCount, 10),
-      color: TAG_COLOR,
-      x: Math.random(),
-      y: Math.random()
-    });
-  }
-  for (const note of noteList) {
-    const noteNodeId = `note:${note.id}`;
-    if (!graph.hasNode(noteNodeId)) continue;
-    for (const tagId of note.tagIds) {
-      const tagNodeId = `tag:${tagId}`;
-      if (!graph.hasNode(tagNodeId)) continue;
-      const edgeId = `${noteNodeId}->${tagNodeId}`;
-      if (!graph.hasEdge(edgeId)) {
-        graph.addEdgeWithKey(edgeId, noteNodeId, tagNodeId, { type: "tag", color: "#3a3126", size: 1 });
+    for (const note of noteList) {
+      const noteKey = `note:${note.id}`;
+      for (const tagId of note.tagIds) {
+        const tagKey = `tag:${tagId}`;
+        if (!graph.hasNode(tagKey)) continue;
+        const edgeKey = `${noteKey}--tag--${tagKey}`;
+        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { type: "tag" });
       }
     }
   }
-  const nodes = graph.nodes();
-  nodes.forEach((n, i) => {
-    const angle = i / Math.max(nodes.length, 1) * 2 * Math.PI;
-    graph.setNodeAttribute(n, "x", Math.cos(angle));
-    graph.setNodeAttribute(n, "y", Math.sin(angle));
-  });
+  if (showLinks) {
+    for (const note of noteList) {
+      const sourceKey = `note:${note.id}`;
+      for (const targetId of note.links || []) {
+        const targetKey = `note:${targetId}`;
+        if (!graph.hasNode(targetKey)) continue;
+        const edgeKey = `${sourceKey}--link--${targetKey}`;
+        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { type: "internal-link" });
+      }
+    }
+  }
   return graph;
 }
-function renderGraph(container, graph, { onNodeClick } = {}) {
+function bfsWithinDepth(fullGraph, startKey, depth) {
+  const visited = /* @__PURE__ */ new Set([startKey]);
+  let frontier = [startKey];
+  for (let d = 0; d < depth && frontier.length; d++) {
+    const next = [];
+    for (const key of frontier) {
+      fullGraph.forEachNeighbor(key, (neighbor) => {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          next.push(neighbor);
+        }
+      });
+    }
+    frontier = next;
+  }
+  return visited;
+}
+function buildGraph({ notes, tags, mode = "global", focusKey = null, depth = 1, filters = {} }) {
+  const { showTags = true, showLinks = true, search = "" } = filters;
+  const full = buildFullGraph(notes, tags, { showTags, showLinks });
+  let keep = null;
+  if (mode === "local" && focusKey && full.hasNode(focusKey)) {
+    keep = bfsWithinDepth(full, focusKey, depth);
+  }
+  const searchNorm = search.trim().toLowerCase();
+  if (searchNorm) {
+    const matches2 = /* @__PURE__ */ new Set();
+    full.forEachNode((key, attrs) => {
+      if (attrs.type === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches2.add(key);
+    });
+    keep = keep ? new Set([...keep].filter((k) => matches2.has(k) || full.getNodeAttribute(k, "type") === "tag")) : matches2;
+  }
+  const view = new import_graphology.default({ multi: false, type: "mixed" });
+  full.forEachNode((key, attrs) => {
+    if (keep && !keep.has(key)) return;
+    view.addNode(key, { ...attrs });
+  });
+  full.forEachEdge((edgeKey, attrs, source, target) => {
+    if (!view.hasNode(source) || !view.hasNode(target)) return;
+    if (full.isDirected(edgeKey)) view.addDirectedEdgeWithKey(edgeKey, source, target, { ...attrs });
+    else view.addEdgeWithKey(edgeKey, source, target, { ...attrs });
+  });
+  if (searchNorm) {
+    view.forEachNode((key, attrs) => {
+      if (attrs.type === "tag" && view.degree(key) === 0) view.dropNode(key);
+    });
+  }
+  const nodes = view.nodes();
+  nodes.forEach((n, i) => {
+    const angle = i / Math.max(nodes.length, 1) * 2 * Math.PI;
+    view.setNodeAttribute(n, "x", Math.cos(angle));
+    view.setNodeAttribute(n, "y", Math.sin(angle));
+  });
+  return view;
+}
+function styleGraph(graph, { nodeSizeScale = 1, linkThickness = 1, showArrows = true } = {}) {
+  graph.forEachNode((key, attrs) => {
+    const baseSize = attrs.type === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
+    graph.setNodeAttribute(key, "size", baseSize * nodeSizeScale);
+    graph.setNodeAttribute(key, "color", attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+  });
+  graph.forEachEdge((key, attrs) => {
+    graph.setEdgeAttribute(key, "size", (attrs.type === "internal-link" ? 1.4 : 1) * linkThickness);
+    graph.setEdgeAttribute(key, "color", attrs.type === "internal-link" ? "#5a4d3d" : "#3a3126");
+    graph.setEdgeAttribute(key, "type", showArrows && attrs.type === "internal-link" ? "arrow" : "line");
+  });
+}
+function renderGraph(container, graph, { onNodeClick, styleOptions, initialSelectedKey } = {}) {
+  styleGraph(graph, styleOptions);
   const sigma = new import_sigma.default(graph, container, {
     renderLabels: true,
     labelColor: { color: "#f0e9df" },
-    defaultEdgeColor: "#3a3126"
+    defaultEdgeColor: "#3a3126",
+    edgeProgramClasses: { arrow: import_edge_arrow.default }
   });
   let hoveredNode = null;
-  function applyHoverState() {
-    graph.forEachNode((node) => {
-      const isNeighbor = hoveredNode && (node === hoveredNode || graph.areNeighbors(node, hoveredNode));
-      const dim = hoveredNode && !isNeighbor;
-      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : graph.getNodeAttribute(node, "type") === "tag" ? TAG_COLOR : NOTE_COLOR);
+  let selectedNode = initialSelectedKey && graph.hasNode(initialSelectedKey) ? initialSelectedKey : null;
+  function applyFocusState() {
+    const focus2 = hoveredNode || selectedNode;
+    graph.forEachNode((node, attrs) => {
+      const isFocus = node === focus2;
+      const isNeighbor = focus2 && graph.areNeighbors(node, focus2);
+      const dim = focus2 && !isFocus && !isNeighbor;
+      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+      graph.setNodeAttribute(node, "highlighted", node === selectedNode);
     });
     graph.forEachEdge((edge, attrs, source, target) => {
-      const dim = hoveredNode && source !== hoveredNode && target !== hoveredNode;
-      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : "#5a4d3d");
+      const dim = focus2 && source !== focus2 && target !== focus2;
+      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.type === "internal-link" ? "#8a7a63" : "#5a4d3d");
     });
     sigma.refresh();
   }
   sigma.on("enterNode", ({ node }) => {
     hoveredNode = node;
-    applyHoverState();
+    applyFocusState();
   });
   sigma.on("leaveNode", () => {
     hoveredNode = null;
-    applyHoverState();
+    applyFocusState();
   });
   sigma.on("clickNode", ({ node }) => {
+    selectedNode = node;
+    applyFocusState();
     const attrs = graph.getNodeAttributes(node);
-    onNodeClick?.(attrs.type, attrs.refId);
+    onNodeClick?.(attrs.type, attrs.refId, node);
   });
+  sigma.on("clickStage", () => {
+    selectedNode = null;
+    applyFocusState();
+  });
+  let draggedNode = null;
+  let isDragging = false;
+  sigma.on("downNode", (e) => {
+    isDragging = true;
+    draggedNode = e.node;
+    graph.setNodeAttribute(draggedNode, "highlighted", true);
+  });
+  sigma.getMouseCaptor().on("mousemovebody", (e) => {
+    if (!isDragging || !draggedNode) return;
+    const pos = sigma.viewportToGraph(e);
+    graph.setNodeAttribute(draggedNode, "x", pos.x);
+    graph.setNodeAttribute(draggedNode, "y", pos.y);
+    e.preventSigmaDefault();
+    e.original.preventDefault();
+    e.original.stopPropagation();
+  });
+  sigma.getMouseCaptor().on("mouseup", () => {
+    isDragging = false;
+    draggedNode = null;
+    applyFocusState();
+  });
+  sigma.getMouseCaptor().on("mousedown", () => {
+    if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox());
+  });
+  applyFocusState();
   return sigma;
 }
 
@@ -25246,6 +25378,7 @@ async function mountKnowledgeView(root) {
       <div class="kg-composer">
         <input id="kgNoteTitle" class="kg-title-input" placeholder="Note title" />
         <div id="kgEditor" class="kg-editor"></div>
+        <div class="kg-composer-hint">Type <code>#tag</code> for a shared concept, <code>[[Note Title]]</code> to link directly to another note.</div>
         <div class="kg-composer-actions">
           <button id="kgSaveNote" class="kg-save-btn">Save note</button>
           <button id="kgNewNote" class="kg-new-btn">+ New</button>
@@ -25264,7 +25397,28 @@ async function mountKnowledgeView(root) {
       </div>
       <div class="kg-graph-panel">
         <div class="kg-graph-controls">
-          <button data-mode="global" class="kg-mode-btn active">Global</button>
+          <div class="kg-graph-controls-row">
+            <button data-mode="global" class="kg-mode-btn active">Global</button>
+            <button data-mode="local" class="kg-mode-btn">Local</button>
+            <label class="kg-depth-control">
+              Depth
+              <input type="number" id="kgDepth" min="1" max="4" value="1" />
+            </label>
+            <input type="text" id="kgSearch" class="kg-search-input" placeholder="Search notes\u2026" />
+          </div>
+          <div class="kg-graph-controls-row">
+            <label class="kg-toggle"><input type="checkbox" id="kgShowTags" checked /> Tags</label>
+            <label class="kg-toggle"><input type="checkbox" id="kgShowLinks" checked /> Links</label>
+            <label class="kg-toggle"><input type="checkbox" id="kgShowArrows" checked /> Arrows</label>
+            <label class="kg-slider-control">
+              Node size
+              <input type="range" id="kgNodeSize" min="0.5" max="2" step="0.1" value="1" />
+            </label>
+            <label class="kg-slider-control">
+              Link width
+              <input type="range" id="kgLinkWidth" min="0.5" max="3" step="0.1" value="1" />
+            </label>
+          </div>
           <span id="kgGraphModeLabel" class="kg-graph-mode-label"></span>
         </div>
         <div id="kgGraphContainer" class="kg-graph-container"></div>
@@ -25274,14 +25428,30 @@ async function mountKnowledgeView(root) {
   let editor = null;
   let editingNoteId = null;
   let graphMode = "global";
-  let graphFocusId = null;
+  let graphFocusKey = null;
   let sigmaInstance = null;
+  function currentFilters() {
+    return {
+      search: document.getElementById("kgSearch").value,
+      showTags: document.getElementById("kgShowTags").checked,
+      showLinks: document.getElementById("kgShowLinks").checked
+    };
+  }
+  function currentStyleOptions() {
+    return {
+      nodeSizeScale: Number(document.getElementById("kgNodeSize").value),
+      linkThickness: Number(document.getElementById("kgLinkWidth").value),
+      showArrows: document.getElementById("kgShowArrows").checked
+    };
+  }
   function startNewNote() {
     editingNoteId = null;
     document.getElementById("kgNoteTitle").value = "";
     editor?.destroy();
     editor = createNoteEditor(document.getElementById("kgEditor"), {
-      onTagClick: (tagId) => showRelatedNotes(tagId)
+      noteId: null,
+      onTagClick: (tagId) => showRelatedNotes(tagId),
+      onNoteLinkClick: (noteId) => openNote(noteId)
     });
   }
   async function refreshNotesList() {
@@ -25303,28 +25473,32 @@ async function mountKnowledgeView(root) {
     const notes = await tagStore.getNotes();
     const note = notes[noteId];
     if (!note) return;
+    document.getElementById("kgRelatedPanel").style.display = "none";
     editingNoteId = note.id;
     document.getElementById("kgNoteTitle").value = note.title;
     editor?.destroy();
     editor = createNoteEditor(document.getElementById("kgEditor"), {
       content: note.bodyHTML,
-      onTagClick: (tagId) => showRelatedNotes(tagId)
+      noteId: note.id,
+      onTagClick: (tagId) => showRelatedNotes(tagId),
+      onNoteLinkClick: (linkedId) => openNote(linkedId)
     });
-    graphMode = "note";
-    graphFocusId = note.id;
+    graphMode = "local";
+    graphFocusKey = `note:${note.id}`;
     setActiveModeButton();
     await refreshGraph();
   }
   async function saveCurrentNote() {
     if (!editor) return;
     const title = document.getElementById("kgNoteTitle").value.trim() || "Untitled";
-    const tagIds = extractTagIds(editor);
+    const { tagIds, links } = extractRelationships(editor);
     const note = await tagStore.saveNote({
       id: editingNoteId,
       title,
       bodyHTML: editor.getHTML(),
       bodyText: editor.getText(),
-      tagIds
+      tagIds,
+      links
     });
     editingNoteId = note.id;
     await refreshNotesList();
@@ -25347,14 +25521,11 @@ async function mountKnowledgeView(root) {
         </div>`;
     }).join("");
     panel.querySelectorAll(".kg-related-row").forEach((row) => {
-      row.addEventListener("click", () => {
-        panel.style.display = "none";
-        openNote(row.dataset.id);
-      });
+      row.addEventListener("click", () => openNote(row.dataset.id));
     });
     panel.style.display = "block";
-    graphMode = "tag";
-    graphFocusId = tagId;
+    graphMode = "local";
+    graphFocusKey = `tag:${tagId}`;
     setActiveModeButton();
     await refreshGraph();
   }
@@ -25365,12 +25536,21 @@ async function mountKnowledgeView(root) {
       document.querySelector('.kg-mode-btn[data-mode="global"]').classList.add("active");
       label.textContent = "";
     } else {
-      label.textContent = graphMode === "tag" ? "tag-focused" : "note-focused";
+      document.querySelector('.kg-mode-btn[data-mode="local"]').classList.add("active");
+      label.textContent = graphFocusKey?.startsWith("tag:") ? "local: tag-focused" : "local: note-focused";
     }
   }
   async function refreshGraph() {
     const [notes, tags] = await Promise.all([tagStore.getNotes(), tagStore.getTags()]);
-    const graph = buildGraph({ notes, tags, mode: graphMode, focusId: graphFocusId });
+    const depth = Math.max(1, Number(document.getElementById("kgDepth").value) || 1);
+    const graph = buildGraph({
+      notes,
+      tags,
+      mode: graphMode,
+      focusKey: graphFocusKey,
+      depth,
+      filters: currentFilters()
+    });
     sigmaInstance?.kill();
     const container = document.getElementById("kgGraphContainer");
     if (graph.order === 0) {
@@ -25380,13 +25560,11 @@ async function mountKnowledgeView(root) {
     }
     container.innerHTML = "";
     sigmaInstance = renderGraph(container, graph, {
+      styleOptions: currentStyleOptions(),
+      initialSelectedKey: graphFocusKey,
       onNodeClick: (type, refId) => {
-        if (type === "note") {
-          document.getElementById("kgRelatedPanel").style.display = "none";
-          openNote(refId);
-        } else {
-          showRelatedNotes(refId);
-        }
+        if (type === "note") openNote(refId);
+        else showRelatedNotes(refId);
       }
     });
   }
@@ -25397,9 +25575,20 @@ async function mountKnowledgeView(root) {
   });
   document.querySelector('.kg-mode-btn[data-mode="global"]').addEventListener("click", async () => {
     graphMode = "global";
-    graphFocusId = null;
+    graphFocusKey = null;
     setActiveModeButton();
     await refreshGraph();
+  });
+  document.querySelector('.kg-mode-btn[data-mode="local"]').addEventListener("click", async () => {
+    if (!graphFocusKey && editingNoteId) graphFocusKey = `note:${editingNoteId}`;
+    if (!graphFocusKey) return;
+    graphMode = "local";
+    setActiveModeButton();
+    await refreshGraph();
+  });
+  ["kgDepth", "kgSearch", "kgShowTags", "kgShowLinks", "kgShowArrows", "kgNodeSize", "kgLinkWidth"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener(el.type === "text" || el.type === "number" ? "input" : "change", refreshGraph);
   });
   startNewNote();
   await refreshNotesList();

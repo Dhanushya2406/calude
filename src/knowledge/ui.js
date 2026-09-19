@@ -2,7 +2,7 @@
 // own module (not spliced into dashboard.js) — "create reusable components
 // rather than putting everything inside the existing note page."
 import { tagStore } from "./tagStore.js";
-import { createNoteEditor, extractTagIds } from "./editor.js";
+import { createNoteEditor, extractRelationships } from "./editor.js";
 import { buildGraph, renderGraph } from "./graph.js";
 
 function escapeHtml(str) {
@@ -17,6 +17,7 @@ export async function mountKnowledgeView(root) {
       <div class="kg-composer">
         <input id="kgNoteTitle" class="kg-title-input" placeholder="Note title" />
         <div id="kgEditor" class="kg-editor"></div>
+        <div class="kg-composer-hint">Type <code>#tag</code> for a shared concept, <code>[[Note Title]]</code> to link directly to another note.</div>
         <div class="kg-composer-actions">
           <button id="kgSaveNote" class="kg-save-btn">Save note</button>
           <button id="kgNewNote" class="kg-new-btn">+ New</button>
@@ -35,7 +36,28 @@ export async function mountKnowledgeView(root) {
       </div>
       <div class="kg-graph-panel">
         <div class="kg-graph-controls">
-          <button data-mode="global" class="kg-mode-btn active">Global</button>
+          <div class="kg-graph-controls-row">
+            <button data-mode="global" class="kg-mode-btn active">Global</button>
+            <button data-mode="local" class="kg-mode-btn">Local</button>
+            <label class="kg-depth-control">
+              Depth
+              <input type="number" id="kgDepth" min="1" max="4" value="1" />
+            </label>
+            <input type="text" id="kgSearch" class="kg-search-input" placeholder="Search notes…" />
+          </div>
+          <div class="kg-graph-controls-row">
+            <label class="kg-toggle"><input type="checkbox" id="kgShowTags" checked /> Tags</label>
+            <label class="kg-toggle"><input type="checkbox" id="kgShowLinks" checked /> Links</label>
+            <label class="kg-toggle"><input type="checkbox" id="kgShowArrows" checked /> Arrows</label>
+            <label class="kg-slider-control">
+              Node size
+              <input type="range" id="kgNodeSize" min="0.5" max="2" step="0.1" value="1" />
+            </label>
+            <label class="kg-slider-control">
+              Link width
+              <input type="range" id="kgLinkWidth" min="0.5" max="3" step="0.1" value="1" />
+            </label>
+          </div>
           <span id="kgGraphModeLabel" class="kg-graph-mode-label"></span>
         </div>
         <div id="kgGraphContainer" class="kg-graph-container"></div>
@@ -45,16 +67,34 @@ export async function mountKnowledgeView(root) {
 
   let editor = null;
   let editingNoteId = null;
-  let graphMode = "global";
-  let graphFocusId = null;
+  let graphMode = "global"; // "global" | "local"
+  let graphFocusKey = null; // "note:<id>" | "tag:<id>"
   let sigmaInstance = null;
+
+  function currentFilters() {
+    return {
+      search: document.getElementById("kgSearch").value,
+      showTags: document.getElementById("kgShowTags").checked,
+      showLinks: document.getElementById("kgShowLinks").checked,
+    };
+  }
+
+  function currentStyleOptions() {
+    return {
+      nodeSizeScale: Number(document.getElementById("kgNodeSize").value),
+      linkThickness: Number(document.getElementById("kgLinkWidth").value),
+      showArrows: document.getElementById("kgShowArrows").checked,
+    };
+  }
 
   function startNewNote() {
     editingNoteId = null;
     document.getElementById("kgNoteTitle").value = "";
     editor?.destroy();
     editor = createNoteEditor(document.getElementById("kgEditor"), {
+      noteId: null,
       onTagClick: (tagId) => showRelatedNotes(tagId),
+      onNoteLinkClick: (noteId) => openNote(noteId),
     });
   }
 
@@ -82,15 +122,18 @@ export async function mountKnowledgeView(root) {
     const notes = await tagStore.getNotes();
     const note = notes[noteId];
     if (!note) return;
+    document.getElementById("kgRelatedPanel").style.display = "none";
     editingNoteId = note.id;
     document.getElementById("kgNoteTitle").value = note.title;
     editor?.destroy();
     editor = createNoteEditor(document.getElementById("kgEditor"), {
       content: note.bodyHTML,
+      noteId: note.id,
       onTagClick: (tagId) => showRelatedNotes(tagId),
+      onNoteLinkClick: (linkedId) => openNote(linkedId),
     });
-    graphMode = "note";
-    graphFocusId = note.id;
+    graphMode = "local";
+    graphFocusKey = `note:${note.id}`;
     setActiveModeButton();
     await refreshGraph();
   }
@@ -98,13 +141,14 @@ export async function mountKnowledgeView(root) {
   async function saveCurrentNote() {
     if (!editor) return;
     const title = document.getElementById("kgNoteTitle").value.trim() || "Untitled";
-    const tagIds = extractTagIds(editor);
+    const { tagIds, links } = extractRelationships(editor);
     const note = await tagStore.saveNote({
       id: editingNoteId,
       title,
       bodyHTML: editor.getHTML(),
       bodyText: editor.getText(),
       tagIds,
+      links,
     });
     editingNoteId = note.id;
     await refreshNotesList();
@@ -130,10 +174,7 @@ export async function mountKnowledgeView(root) {
       })
       .join("");
     panel.querySelectorAll(".kg-related-row").forEach((row) => {
-      row.addEventListener("click", () => {
-        panel.style.display = "none";
-        openNote(row.dataset.id);
-      });
+      row.addEventListener("click", () => openNote(row.dataset.id));
     });
     panel.style.display = "block";
 
@@ -141,8 +182,8 @@ export async function mountKnowledgeView(root) {
     // should not destroy the current note" is satisfied because this only
     // swaps the graph view and opens the related-notes panel; the editor
     // and whatever note is currently open are untouched.
-    graphMode = "tag";
-    graphFocusId = tagId;
+    graphMode = "local";
+    graphFocusKey = `tag:${tagId}`;
     setActiveModeButton();
     await refreshGraph();
   }
@@ -154,13 +195,22 @@ export async function mountKnowledgeView(root) {
       document.querySelector('.kg-mode-btn[data-mode="global"]').classList.add("active");
       label.textContent = "";
     } else {
-      label.textContent = graphMode === "tag" ? "tag-focused" : "note-focused";
+      document.querySelector('.kg-mode-btn[data-mode="local"]').classList.add("active");
+      label.textContent = graphFocusKey?.startsWith("tag:") ? "local: tag-focused" : "local: note-focused";
     }
   }
 
   async function refreshGraph() {
     const [notes, tags] = await Promise.all([tagStore.getNotes(), tagStore.getTags()]);
-    const graph = buildGraph({ notes, tags, mode: graphMode, focusId: graphFocusId });
+    const depth = Math.max(1, Number(document.getElementById("kgDepth").value) || 1);
+    const graph = buildGraph({
+      notes,
+      tags,
+      mode: graphMode,
+      focusKey: graphFocusKey,
+      depth,
+      filters: currentFilters(),
+    });
     sigmaInstance?.kill();
     const container = document.getElementById("kgGraphContainer");
     if (graph.order === 0) {
@@ -170,13 +220,11 @@ export async function mountKnowledgeView(root) {
     }
     container.innerHTML = "";
     sigmaInstance = renderGraph(container, graph, {
+      styleOptions: currentStyleOptions(),
+      initialSelectedKey: graphFocusKey,
       onNodeClick: (type, refId) => {
-        if (type === "note") {
-          document.getElementById("kgRelatedPanel").style.display = "none";
-          openNote(refId);
-        } else {
-          showRelatedNotes(refId);
-        }
+        if (type === "note") openNote(refId);
+        else showRelatedNotes(refId);
       },
     });
   }
@@ -188,9 +236,25 @@ export async function mountKnowledgeView(root) {
   });
   document.querySelector('.kg-mode-btn[data-mode="global"]').addEventListener("click", async () => {
     graphMode = "global";
-    graphFocusId = null;
+    graphFocusKey = null;
     setActiveModeButton();
     await refreshGraph();
+  });
+  document.querySelector('.kg-mode-btn[data-mode="local"]').addEventListener("click", async () => {
+    // "Local" with nothing focused yet falls back to whatever note is
+    // currently open; if none, there's nothing to be local to.
+    if (!graphFocusKey && editingNoteId) graphFocusKey = `note:${editingNoteId}`;
+    if (!graphFocusKey) return;
+    graphMode = "local";
+    setActiveModeButton();
+    await refreshGraph();
+  });
+
+  // Filters/style controls all just trigger a rebuild — graph state itself
+  // (mode/focus) is untouched by any of these.
+  ["kgDepth", "kgSearch", "kgShowTags", "kgShowLinks", "kgShowArrows", "kgNodeSize", "kgLinkWidth"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener(el.type === "text" || el.type === "number" ? "input" : "change", refreshGraph);
   });
 
   startNewNote();

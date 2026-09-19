@@ -625,6 +625,20 @@ sl-textarea::part(textarea) { color: var(--text); font-family: inherit; font-siz
 }
 .tag-mention:hover { text-decoration: underline; }
 
+.note-link-mention {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.note-link-mention:hover { border-color: var(--accent); color: var(--accent); }
+
+.kg-composer-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.kg-composer-hint code { background: var(--surface-2); border-radius: 3px; padding: 1px 4px; }
+
 .kg-composer-actions { display: flex; gap: 8px; margin-top: 12px; }
 .kg-save-btn, .kg-new-btn {
   border: 1px solid var(--border);
@@ -685,7 +699,8 @@ sl-textarea::part(textarea) { color: var(--text); font-family: inherit; font-siz
   grid-row: 2;
 }
 .kg-related-panel[style*="block"] ~ .kg-graph-panel { margin-top: 0; }
-.kg-graph-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.kg-graph-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.kg-graph-controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .kg-mode-btn {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -698,6 +713,52 @@ sl-textarea::part(textarea) { color: var(--text); font-family: inherit; font-siz
 }
 .kg-mode-btn.active, .kg-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
 .kg-graph-mode-label { font-size: 12px; color: var(--muted); font-style: italic; }
+
+.kg-depth-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kg-depth-control input {
+  width: 42px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-family: inherit;
+}
+.kg-search-input {
+  flex: 1;
+  min-width: 140px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.kg-search-input:focus { outline: none; border-color: var(--accent); }
+.kg-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.kg-toggle input { accent-color: var(--accent); cursor: pointer; }
+.kg-slider-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kg-slider-control input { accent-color: var(--accent); width: 70px; }
 .kg-graph-container {
   height: 360px;
   background: var(--surface);
@@ -708,9 +769,10 @@ sl-textarea::part(textarea) { color: var(--text); font-family: inherit; font-siz
 .kg-graph-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
 .kg-error { padding: 20px; color: var(--warn); }
 
-/* Tag suggestion dropdown — appended to document.body (fixed-position
-   popup), so it's styled globally rather than scoped under .kg-layout. */
-.tag-suggest-menu {
+/* Tag/note-link suggestion dropdowns — both appended to document.body
+   (fixed-position popups), so styled globally rather than scoped under
+   .kg-layout. */
+.tag-suggest-menu, .note-link-suggest-menu {
   position: absolute;
   z-index: 1000;
   background: var(--surface-2);
