@@ -36,10 +36,17 @@
   if (videoId) {
     // controls=0/rel=0/iv_load_policy=3: suppress YouTube's own control bar,
     // end-screen related videos, and annotations — Snackable renders its own
-    // minimal timeline instead (see dashboard.js). The YouTube logo/watermark
-    // itself can't be removed this way (or any way) — that's a term of
-    // YouTube's embed, not a parameter.
-    frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(videoId)}?enablejsapi=1&controls=0&rel=0&iv_load_policy=3&origin=${encodeURIComponent(location.origin)}`;
+    // minimal timeline instead (see dashboard.js). fs=0 additionally removes
+    // YouTube's own fullscreen button specifically (no Snackable-built
+    // replacement for that one yet). cc_load_policy=0 stops YouTube from
+    // force-showing captions by default — untested whether this is actually
+    // what's causing caption text some users have seen, since burned-in
+    // (baked into the video file) captions are also possible and this
+    // wouldn't affect those. The YouTube logo/watermark and any
+    // creator-set disclosure badges (e.g. "Includes paid promotion") can't
+    // be removed this way or any way — that's a term of YouTube's embed,
+    // not a parameter gap.
+    frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(videoId)}?enablejsapi=1&controls=0&rel=0&iv_load_policy=3&fs=0&cc_load_policy=0&origin=${encodeURIComponent(location.origin)}`;
   }
 
   window.addEventListener("message", (event) => {
