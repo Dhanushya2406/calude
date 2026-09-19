@@ -66,8 +66,12 @@
                   <div id="timelineFill" class="custom-timeline-fill"></div>
                   <div id="timelineHandle" class="custom-timeline-handle"></div>
                 </div>
-                <div class="custom-timeline-time">
+                <div class="custom-timeline-controls">
+                  <button id="playPauseBtn" class="timeline-play-btn" aria-label="Play">
+                    <sl-icon id="playPauseIcon" src="icons/ui/play.svg"></sl-icon>
+                  </button>
                   <span id="timelineCurrent">0:00</span>
+                  <span class="timeline-time-sep">/</span>
                   <span id="timelineDuration">0:00</span>
                 </div>
               </div>
@@ -128,7 +132,7 @@
     </sl-tab-group>
     <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
 
-    <div class="version-footer">v2.5.0 · custom timeline + real header fix</div>
+    <div class="version-footer">v2.5.1 · added play/pause control</div>
   </div>
 
   <script src="dashboard.js"></script>

@@ -452,14 +452,33 @@ sl-menu-item::part(base):hover { background: var(--surface); }
 }
 .custom-timeline-track:hover .custom-timeline-handle,
 .custom-timeline-track.dragging .custom-timeline-handle { opacity: 1; }
-.custom-timeline-time {
+.custom-timeline-controls {
   display: flex;
-  justify-content: space-between;
-  margin-top: 7px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.timeline-time-sep { opacity: .5; }
+
+.timeline-play-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  background: var(--accent);
+  color: #1a1310;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity .15s ease;
+}
+.timeline-play-btn:hover { opacity: .85; }
+.timeline-play-btn sl-icon { font-size: 13px; }
 
 .video-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .video-meta h3 { margin: 14px 0 2px; font-size: 16px; flex-basis: 100%; }

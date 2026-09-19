@@ -21,6 +21,7 @@ let currentPlayerTime = 0;
 let currentPlayerDuration = 0;
 let timelinePollInterval = null;
 let timelineDragging = false;
+let isPlayerPlaying = false;
 let pendingHighlightStart = null;
 let watchLoadToken = 0;
 let playbackConfirmed = false;
@@ -284,6 +285,8 @@ function openWatch(video) {
   playbackConfirmed = false;
   currentPlayerTime = 0;
   currentPlayerDuration = 0;
+  isPlayerPlaying = false;
+  updatePlayPauseIcon();
   const token = ++watchLoadToken;
   clearTimeout(pendingErrorTimer);
   pendingErrorTimer = null;
@@ -407,6 +410,11 @@ window.addEventListener("message", (event) => {
         currentPlayerDuration = data.info.duration;
       }
       if (!timelineDragging) updateTimelineUI();
+    }
+    if (data.event === "onStateChange") {
+      // YT.PlayerState: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+      isPlayerPlaying = data.info === 1;
+      updatePlayPauseIcon();
     }
     if (data.event === "onError") {
       const code = data.info;
@@ -563,6 +571,21 @@ function seekFromTimelineEvent(clientX) {
   updateTimelineUI();
   seekTo(target);
 }
+
+function updatePlayPauseIcon() {
+  const icon = document.getElementById("playPauseIcon");
+  const btn = document.getElementById("playPauseBtn");
+  icon.src = isPlayerPlaying ? "icons/ui/pause.svg" : "icons/ui/play.svg";
+  btn.setAttribute("aria-label", isPlayerPlaying ? "Pause" : "Play");
+}
+
+document.getElementById("playPauseBtn").addEventListener("click", () => {
+  // Optimistic — the real onStateChange event (handled above) reconciles
+  // this shortly after, same pattern as the timeline's own optimistic seek.
+  isPlayerPlaying = !isPlayerPlaying;
+  updatePlayPauseIcon();
+  postToPlayer({ event: "command", func: isPlayerPlaying ? "playVideo" : "pauseVideo", args: [] });
+});
 
 (() => {
   const track = document.getElementById("timelineTrack");
