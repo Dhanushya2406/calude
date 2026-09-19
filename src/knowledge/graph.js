@@ -12,6 +12,19 @@
 //                     SAME tag node, and appear connected only through it.
 // Both come straight from real note.links / note.tagIds arrays — nothing
 // here is inferred or hardcoded.
+//
+// Node/edge attributes use "entityType"/"relType" for our own domain
+// meaning ("note"/"tag", "tag"/"internal-link") rather than Sigma's
+// reserved attribute name "type" — Sigma uses "type" on both nodes and
+// edges itself, to pick which rendering PROGRAM draws that element (e.g.
+// "arrow" selects EdgeArrowProgram below). Setting our domain value there
+// directly collides with that: `type: "note"` made Sigma look for a
+// registered node program literally named "note", find none, and throw
+// ("could not find a suitable program for node type 'note'"). The edge
+// side of this same mistake didn't throw (styleGraph was overwriting a
+// real relType with "arrow"/"line" for rendering, silently breaking any
+// code that read edge .type expecting "tag"/"internal-link" afterward) —
+// just quieter, not safer.
 import Graph from "graphology";
 import Sigma from "sigma";
 import EdgeArrowProgram from "sigma/rendering/webgl/programs/edge.arrow.js";
@@ -30,7 +43,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
   const tagList = Object.values(tags);
 
   for (const note of noteList) {
-    graph.addNode(`note:${note.id}`, { type: "note", refId: note.id, label: note.title });
+    graph.addNode(`note:${note.id}`, { entityType: "note", refId: note.id, label: note.title });
   }
 
   if (showTags) {
@@ -38,7 +51,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
     for (const note of noteList) for (const t of note.tagIds) usedTagIds.add(t);
     for (const tag of tagList) {
       if (!usedTagIds.has(tag.id)) continue;
-      graph.addNode(`tag:${tag.id}`, { type: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
+      graph.addNode(`tag:${tag.id}`, { entityType: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
     }
     for (const note of noteList) {
       const noteKey = `note:${note.id}`;
@@ -46,7 +59,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
         const tagKey = `tag:${tagId}`;
         if (!graph.hasNode(tagKey)) continue;
         const edgeKey = `${noteKey}--tag--${tagKey}`;
-        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { type: "tag" });
+        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { relType: "tag" });
       }
     }
   }
@@ -58,7 +71,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
         const targetKey = `note:${targetId}`;
         if (!graph.hasNode(targetKey)) continue; // linked note may have been deleted
         const edgeKey = `${sourceKey}--link--${targetKey}`;
-        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { type: "internal-link" });
+        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { relType: "internal-link" });
       }
     }
   }
@@ -101,12 +114,12 @@ export function buildGraph({ notes, tags, mode = "global", focusKey = null, dept
   if (searchNorm) {
     const matches = new Set();
     full.forEachNode((key, attrs) => {
-      if (attrs.type === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches.add(key);
+      if (attrs.entityType === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches.add(key);
     });
     // Keep matched notes plus anything already in `keep` (if local mode),
     // intersected — search narrows whatever scope (global or local) is
     // already active rather than replacing it.
-    keep = keep ? new Set([...keep].filter((k) => matches.has(k) || full.getNodeAttribute(k, "type") === "tag")) : matches;
+    keep = keep ? new Set([...keep].filter((k) => matches.has(k) || full.getNodeAttribute(k, "entityType") === "tag")) : matches;
   }
 
   const view = new Graph({ multi: false, type: "mixed" });
@@ -125,7 +138,7 @@ export function buildGraph({ notes, tags, mode = "global", focusKey = null, dept
   // notes are in view.
   if (searchNorm) {
     view.forEachNode((key, attrs) => {
-      if (attrs.type === "tag" && view.degree(key) === 0) view.dropNode(key);
+      if (attrs.entityType === "tag" && view.degree(key) === 0) view.dropNode(key);
     });
   }
 
@@ -146,18 +159,26 @@ export function buildGraph({ notes, tags, mode = "global", focusKey = null, dept
 
 function styleGraph(graph, { nodeSizeScale = 1, linkThickness = 1, showArrows = true } = {}) {
   graph.forEachNode((key, attrs) => {
-    const baseSize = attrs.type === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
+    const baseSize = attrs.entityType === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
     graph.setNodeAttribute(key, "size", baseSize * nodeSizeScale);
-    graph.setNodeAttribute(key, "color", attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+    graph.setNodeAttribute(key, "color", attrs.entityType === "tag" ? TAG_COLOR : NOTE_COLOR);
+    // Deliberately NOT setting a node "type" here — that's the Sigma-
+    // reserved render-program attribute (see the file-header note). Not
+    // setting it at all leaves every node on Sigma's default circle
+    // program, which is also exactly the "notes are circular nodes"
+    // requirement — no extra config needed to get that.
   });
   graph.forEachEdge((key, attrs) => {
-    graph.setEdgeAttribute(key, "size", (attrs.type === "internal-link" ? 1.4 : 1) * linkThickness);
-    graph.setEdgeAttribute(key, "color", attrs.type === "internal-link" ? "#5a4d3d" : "#3a3126");
+    graph.setEdgeAttribute(key, "size", (attrs.relType === "internal-link" ? 1.4 : 1) * linkThickness);
+    graph.setEdgeAttribute(key, "color", attrs.relType === "internal-link" ? "#5a4d3d" : "#3a3126");
     // Only directed internal-link edges get an arrowhead; tag edges are
     // conceptually non-directional (a note doesn't "point at" its tag any
     // more than the tag "points at" the note) and stay plain lines even
-    // when arrows are toggled on.
-    graph.setEdgeAttribute(key, "type", showArrows && attrs.type === "internal-link" ? "arrow" : "line");
+    // when arrows are toggled on. This "type" IS the Sigma-reserved one
+    // (selects which edge program draws it, "arrow" vs the default) —
+    // fine to set here since it's genuinely a rendering choice, not a
+    // second copy of relType; relType itself is left untouched.
+    graph.setEdgeAttribute(key, "type", showArrows && attrs.relType === "internal-link" ? "arrow" : undefined);
   });
 }
 
@@ -185,7 +206,7 @@ export function renderGraph(container, graph, { onNodeClick, styleOptions, initi
       const isFocus = node === focus;
       const isNeighbor = focus && graph.areNeighbors(node, focus);
       const dim = focus && !isFocus && !isNeighbor;
-      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.entityType === "tag" ? TAG_COLOR : NOTE_COLOR);
       // "highlighted" is Sigma's actual supported mechanism for an
       // enlarged/halo'd node treatment (also used below for the node
       // being dragged) — there's no separate "borderColor" attribute the
@@ -195,7 +216,7 @@ export function renderGraph(container, graph, { onNodeClick, styleOptions, initi
     });
     graph.forEachEdge((edge, attrs, source, target) => {
       const dim = focus && source !== focus && target !== focus;
-      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.type === "internal-link" ? "#8a7a63" : "#5a4d3d");
+      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.relType === "internal-link" ? "#8a7a63" : "#5a4d3d");
     });
     sigma.refresh();
   }
@@ -212,7 +233,7 @@ export function renderGraph(container, graph, { onNodeClick, styleOptions, initi
     selectedNode = node;
     applyFocusState();
     const attrs = graph.getNodeAttributes(node);
-    onNodeClick?.(attrs.type, attrs.refId, node);
+    onNodeClick?.(attrs.entityType, attrs.refId, node);
   });
   sigma.on("clickStage", () => {
     selectedNode = null;

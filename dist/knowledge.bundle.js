@@ -25196,14 +25196,14 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
   const noteList = Object.values(notes);
   const tagList = Object.values(tags);
   for (const note of noteList) {
-    graph.addNode(`note:${note.id}`, { type: "note", refId: note.id, label: note.title });
+    graph.addNode(`note:${note.id}`, { entityType: "note", refId: note.id, label: note.title });
   }
   if (showTags) {
     const usedTagIds = /* @__PURE__ */ new Set();
     for (const note of noteList) for (const t of note.tagIds) usedTagIds.add(t);
     for (const tag of tagList) {
       if (!usedTagIds.has(tag.id)) continue;
-      graph.addNode(`tag:${tag.id}`, { type: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
+      graph.addNode(`tag:${tag.id}`, { entityType: "tag", refId: tag.id, label: `#${tag.name}`, usageCount: tag.usageCount });
     }
     for (const note of noteList) {
       const noteKey = `note:${note.id}`;
@@ -25211,7 +25211,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
         const tagKey = `tag:${tagId}`;
         if (!graph.hasNode(tagKey)) continue;
         const edgeKey = `${noteKey}--tag--${tagKey}`;
-        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { type: "tag" });
+        if (!graph.hasEdge(edgeKey)) graph.addEdgeWithKey(edgeKey, noteKey, tagKey, { relType: "tag" });
       }
     }
   }
@@ -25222,7 +25222,7 @@ function buildFullGraph(notes, tags, { showTags = true, showLinks = true } = {})
         const targetKey = `note:${targetId}`;
         if (!graph.hasNode(targetKey)) continue;
         const edgeKey = `${sourceKey}--link--${targetKey}`;
-        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { type: "internal-link" });
+        if (!graph.hasEdge(edgeKey)) graph.addDirectedEdgeWithKey(edgeKey, sourceKey, targetKey, { relType: "internal-link" });
       }
     }
   }
@@ -25256,9 +25256,9 @@ function buildGraph({ notes, tags, mode = "global", focusKey = null, depth = 1, 
   if (searchNorm) {
     const matches2 = /* @__PURE__ */ new Set();
     full.forEachNode((key, attrs) => {
-      if (attrs.type === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches2.add(key);
+      if (attrs.entityType === "note" && attrs.label.toLowerCase().includes(searchNorm)) matches2.add(key);
     });
-    keep = keep ? new Set([...keep].filter((k) => matches2.has(k) || full.getNodeAttribute(k, "type") === "tag")) : matches2;
+    keep = keep ? new Set([...keep].filter((k) => matches2.has(k) || full.getNodeAttribute(k, "entityType") === "tag")) : matches2;
   }
   const view = new import_graphology.default({ multi: false, type: "mixed" });
   full.forEachNode((key, attrs) => {
@@ -25272,7 +25272,7 @@ function buildGraph({ notes, tags, mode = "global", focusKey = null, depth = 1, 
   });
   if (searchNorm) {
     view.forEachNode((key, attrs) => {
-      if (attrs.type === "tag" && view.degree(key) === 0) view.dropNode(key);
+      if (attrs.entityType === "tag" && view.degree(key) === 0) view.dropNode(key);
     });
   }
   const nodes = view.nodes();
@@ -25285,14 +25285,14 @@ function buildGraph({ notes, tags, mode = "global", focusKey = null, depth = 1, 
 }
 function styleGraph(graph, { nodeSizeScale = 1, linkThickness = 1, showArrows = true } = {}) {
   graph.forEachNode((key, attrs) => {
-    const baseSize = attrs.type === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
+    const baseSize = attrs.entityType === "tag" ? 6 + Math.min(attrs.usageCount || 0, 10) : 8;
     graph.setNodeAttribute(key, "size", baseSize * nodeSizeScale);
-    graph.setNodeAttribute(key, "color", attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+    graph.setNodeAttribute(key, "color", attrs.entityType === "tag" ? TAG_COLOR : NOTE_COLOR);
   });
   graph.forEachEdge((key, attrs) => {
-    graph.setEdgeAttribute(key, "size", (attrs.type === "internal-link" ? 1.4 : 1) * linkThickness);
-    graph.setEdgeAttribute(key, "color", attrs.type === "internal-link" ? "#5a4d3d" : "#3a3126");
-    graph.setEdgeAttribute(key, "type", showArrows && attrs.type === "internal-link" ? "arrow" : "line");
+    graph.setEdgeAttribute(key, "size", (attrs.relType === "internal-link" ? 1.4 : 1) * linkThickness);
+    graph.setEdgeAttribute(key, "color", attrs.relType === "internal-link" ? "#5a4d3d" : "#3a3126");
+    graph.setEdgeAttribute(key, "type", showArrows && attrs.relType === "internal-link" ? "arrow" : void 0);
   });
 }
 function renderGraph(container, graph, { onNodeClick, styleOptions, initialSelectedKey } = {}) {
@@ -25311,12 +25311,12 @@ function renderGraph(container, graph, { onNodeClick, styleOptions, initialSelec
       const isFocus = node === focus2;
       const isNeighbor = focus2 && graph.areNeighbors(node, focus2);
       const dim = focus2 && !isFocus && !isNeighbor;
-      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.type === "tag" ? TAG_COLOR : NOTE_COLOR);
+      graph.setNodeAttribute(node, "color", dim ? DIM_COLOR : attrs.entityType === "tag" ? TAG_COLOR : NOTE_COLOR);
       graph.setNodeAttribute(node, "highlighted", node === selectedNode);
     });
     graph.forEachEdge((edge, attrs, source, target) => {
       const dim = focus2 && source !== focus2 && target !== focus2;
-      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.type === "internal-link" ? "#8a7a63" : "#5a4d3d");
+      graph.setEdgeAttribute(edge, "color", dim ? "#241f18" : attrs.relType === "internal-link" ? "#8a7a63" : "#5a4d3d");
     });
     sigma.refresh();
   }
@@ -25332,7 +25332,7 @@ function renderGraph(container, graph, { onNodeClick, styleOptions, initialSelec
     selectedNode = node;
     applyFocusState();
     const attrs = graph.getNodeAttributes(node);
-    onNodeClick?.(attrs.type, attrs.refId, node);
+    onNodeClick?.(attrs.entityType, attrs.refId, node);
   });
   sigma.on("clickStage", () => {
     selectedNode = null;
