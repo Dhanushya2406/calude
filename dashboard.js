@@ -62,8 +62,28 @@ function moveTabIndicator() {
 mainTabs.addEventListener("sl-tab-show", (e) => {
   if (e.detail.name === "analytics") renderAnalytics();
   if (e.detail.name === "history") renderHistory();
+  if (e.detail.name === "notes") loadKnowledgeTab();
   moveTabIndicator();
 });
+
+// The Tiptap/Sigma.js/Graphology bundle (dist/knowledge.bundle.js, built
+// from src/knowledge/ via `npm run build` — the one part of Snackable that
+// goes through an actual build step) is loaded lazily via dynamic import
+// on first opening the Notes tab, not a static <script> tag — it's ~900KB,
+// no reason to pay that cost for people who never open this tab. The
+// browser caches the module after the first import(), so re-opening the
+// tab is cheap; window.SnackableKnowledge.init() itself also no-ops after
+// the first successful mount (see src/knowledge/index.js).
+async function loadKnowledgeTab() {
+  const root = document.getElementById("knowledgeRoot");
+  try {
+    await import("/dist/knowledge.bundle.js");
+    await window.SnackableKnowledge.init(root);
+  } catch (err) {
+    console.error("Snackable: failed to load knowledge bundle", err);
+    root.innerHTML = `<div class="empty-state">Couldn't load the Notes view. Check the console.</div>`;
+  }
+}
 
 // Chrome's "aria-hidden on an element containing focus" warning: Shoelace's
 // setActiveTab() (tab-group source) never blurs anything — it only flips

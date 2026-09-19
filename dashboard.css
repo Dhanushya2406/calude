@@ -581,3 +581,156 @@ sl-textarea::part(textarea) { color: var(--text); font-family: inherit; font-siz
   color: var(--muted);
   opacity: 0.5;
 }
+
+/* ==== Knowledge graph (src/knowledge/, dist/knowledge.bundle.js) ==== */
+.kg-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto 1fr;
+  gap: 20px;
+}
+
+.kg-composer {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.kg-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0 0 10px;
+  margin-bottom: 10px;
+}
+.kg-title-input:focus { outline: none; border-bottom-color: var(--accent); }
+
+.kg-editor { min-height: 120px; font-size: 14px; }
+.kg-editor .ProseMirror { outline: none; line-height: 1.6; }
+.kg-editor .ProseMirror p { margin: 0 0 8px; }
+.tag-mention {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tag-mention:hover { text-decoration: underline; }
+
+.kg-composer-actions { display: flex; gap: 8px; margin-top: 12px; }
+.kg-save-btn, .kg-new-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.kg-save-btn { background: var(--accent); color: #1a1310; border-color: var(--accent); font-weight: 600; }
+.kg-new-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.kg-notes-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.kg-notes-panel h4 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kg-notes-list { display: flex; flex-direction: column; gap: 8px; }
+.kg-note-row {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color .15s ease;
+  border: 1px solid transparent;
+}
+.kg-note-row:hover { border-color: var(--accent); }
+.kg-note-row-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.kg-note-row-excerpt { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.kg-related-panel {
+  grid-column: 1;
+  grid-row: 2;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px;
+  align-self: start;
+}
+.kg-related-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.kg-related-header h4 { margin: 0; font-size: 14px; color: var(--accent); }
+.kg-related-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; }
+.kg-related-close:hover { color: var(--text); }
+#kgRelatedList { display: flex; flex-direction: column; gap: 8px; }
+.kg-related-row { background: var(--surface-2); border-radius: 8px; padding: 10px; cursor: pointer; }
+.kg-related-row:hover { border: 1px solid var(--accent); }
+
+.kg-graph-panel {
+  grid-column: 1;
+  grid-row: 2;
+}
+.kg-related-panel[style*="block"] ~ .kg-graph-panel { margin-top: 0; }
+.kg-graph-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.kg-mode-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.kg-mode-btn.active, .kg-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+.kg-graph-mode-label { font-size: 12px; color: var(--muted); font-style: italic; }
+.kg-graph-container {
+  height: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+}
+.kg-graph-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
+.kg-error { padding: 20px; color: var(--warn); }
+
+/* Tag suggestion dropdown — appended to document.body (fixed-position
+   popup), so it's styled globally rather than scoped under .kg-layout. */
+.tag-suggest-menu {
+  position: absolute;
+  z-index: 1000;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.tag-suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.tag-suggest-item.active, .tag-suggest-item:hover { background: var(--accent-soft); color: var(--accent); }
+.tag-suggest-count { font-size: 11px; color: var(--muted); }

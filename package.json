@@ -1,0 +1,23 @@
+{
+  "name": "snackable-knowledge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build tooling for Snackable's tag/knowledge-graph feature (Tiptap + Sigma.js + Graphology). The rest of the extension has no build step and loads directly — this bundles only src/knowledge/ into dist/knowledge.bundle.js.",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  },
+  "dependencies": {
+    "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-mention": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "@tiptap/suggestion": "^2.27.3",
+    "graphology": "^0.25.4",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "sigma": "^2.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "jsdom": "^29.1.1"
+  }
+}

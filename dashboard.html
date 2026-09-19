@@ -25,6 +25,7 @@
       <sl-tab slot="nav" panel="watch"><sl-icon src="icons/ui/circle-play.svg" class="nav-icon"></sl-icon> Watch</sl-tab>
       <sl-tab slot="nav" panel="history"><sl-icon src="icons/ui/list-checks.svg" class="nav-icon"></sl-icon> History</sl-tab>
       <sl-tab slot="nav" panel="analytics"><sl-icon src="icons/ui/chart-column.svg" class="nav-icon"></sl-icon> Analytics</sl-tab>
+      <sl-tab slot="nav" panel="notes"><sl-icon src="icons/ui/notebook-pen.svg" class="nav-icon"></sl-icon> Notes</sl-tab>
       <div slot="nav" id="sidebarFooter" class="sidebar-footer">
         <sl-button id="syncNowBtn" size="small"><sl-icon src="icons/ui/refresh-cw.svg" slot="prefix"></sl-icon> <span id="syncBtnLabel">Sync now</span></sl-button>
       </div>
@@ -129,10 +130,24 @@
           <div id="analyticsBars" class="analytics-bars"></div>
         </div>
       </sl-tab-panel>
+
+      <sl-tab-panel name="notes">
+        <div class="page-header">
+          <div>
+            <h1>Notes</h1>
+            <p class="page-subtitle">Obsidian-style notes with #tags — separate from per-video Watch notes.</p>
+          </div>
+        </div>
+        <div class="panel-scroll">
+          <div id="knowledgeRoot" class="kg-root">
+            <div class="empty-state">Loading…</div>
+          </div>
+        </div>
+      </sl-tab-panel>
     </sl-tab-group>
     <div id="tabIndicator" class="tab-indicator" aria-hidden="true"></div>
 
-    <div class="version-footer">v2.5.2 · fs=0 + cc_load_policy=0</div>
+    <div class="version-footer">v2.6.0 · Tags + Knowledge Graph</div>
   </div>
 
   <script src="dashboard.js"></script>

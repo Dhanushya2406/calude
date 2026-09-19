@@ -8,25 +8,33 @@ Snackable — a personal Manifest V3 Chrome extension that turns YouTube's Watch
 
 ## Commands
 
-There is no build step, no package.json, no bundler, no test suite, and no linter. This is plain HTML/CSS/JS loaded directly by Chrome as an unpacked extension.
+The extension itself (everything except `src/knowledge/`) has no build step — plain HTML/CSS/JS loaded directly by Chrome as an unpacked extension. **`src/knowledge/` (the Tags/Knowledge Graph feature) is the one exception** — it's bundled via esbuild, and is the first and only part of this project with real build tooling. No test suite or linter exists for either part.
 
-**Development loop:**
+**Development loop (everything except src/knowledge/):**
 1. Edit `background.js`, `dashboard.{html,js,css}`, or anything under `vendor/`/`icons/`/`fonts/` directly.
 2. In Chrome, go to `chrome://extensions`, find Snackable, click the reload icon to pick up the change.
 3. Click the toolbar icon to open/refresh `dashboard.html` and test manually — there is no automated test suite.
 4. For `background.js` changes, also check its console via `chrome://extensions` → Snackable → "service worker" link (not the dashboard page's own console).
 
-**`docs/player.html` is the one exception** — it's not loaded from disk. It's served live via GitHub Pages at `https://dhanushya2406.github.io/calude/player.html`, and `dashboard.js` embeds videos through that URL, not the local file. Changes to it only take effect after `git push` to `main` and a GitHub Pages rebuild (poll `curl -s https://dhanushya2406.github.io/calude/player.html` for the change to confirm it's live — rebuilds have taken anywhere from ~10s to ~2min in practice).
+**Development loop for `src/knowledge/` (Tags/Knowledge Graph — Tiptap + Sigma.js + Graphology):**
+1. `npm install` once (installs into `node_modules/`, gitignored — never committed).
+2. Edit files under `src/knowledge/`.
+3. `npm run build` (or `npm run watch` for continuous rebuilds) — bundles via `build.mjs`/esbuild into `dist/knowledge.bundle.js`. **This output file is committed to the repo**, same treatment as vendored Shoelace — there's no CI to build it automatically, so a source change with no rebuild is a silent no-op in the actual extension.
+4. Reload the extension, open the "Notes" tab (lazy-loads the bundle via dynamic `import("/dist/knowledge.bundle.js")` — root-relative path, same reason as the Shoelace autoloader below).
+5. No live-browser verification tooling exists here (see "Claude in Chrome browser automation" limitation — it can't reach any `chrome-extension://` page). What *can* be checked outside a browser: `npm run build` succeeding, and a Node+jsdom smoke test importing the bundle directly and exercising `tagStore`/`graph.js` (the deterministic, DOM-independent logic) — write one ad hoc if verifying a change to that layer; there's no persistent test file for it currently.
 
-No CI, no `npm install`, nothing else to run.
+**`docs/player.html` is the other exception** — it's not loaded from disk. It's served live via GitHub Pages at `https://dhanushya2406.github.io/calude/player.html`, and `dashboard.js` embeds videos through that URL, not the local file. Changes to it only take effect after `git push` to `main` and a GitHub Pages rebuild (poll `curl -s https://dhanushya2406.github.io/calude/player.html` for the change to confirm it's live — rebuilds have taken anywhere from ~10s to ~2min in practice).
+
+No CI anywhere.
 
 ## Architecture
 
 Three parts:
 
 1. **`background.js`** (service worker) — every 15 min, opens `youtube.com/playlist?list=WL` in a hidden tab, scrapes it via `chrome.scripting.executeScript` (selectors like `ytd-playlist-video-renderer` — fragile by nature, check these first if sync stops picking up videos), dedupes into `chrome.storage.local`, and separately checks embeddability per video via YouTube's oEmbed endpoint.
-2. **`dashboard.html`/`dashboard.js`/`dashboard.css`** — the whole UI, opened from the toolbar icon. One `sl-tab-group[placement="start"]` (left sidebar nav) with four panels: Queue (card grid), Watch (embedded player + notes/highlights/chapters), History, Analytics.
+2. **`dashboard.html`/`dashboard.js`/`dashboard.css`** — the whole UI, opened from the toolbar icon. One `sl-tab-group[placement="start"]` (left sidebar nav) with five panels: Queue (card grid), Watch (embedded player + notes/highlights/chapters), History, Analytics, Notes (Tags/Knowledge Graph — see below).
 3. **`docs/player.html`** — a stateless relay page hosted on GitHub Pages (see Commands above for why it can't just be a local file). YouTube's player-config check rejects `chrome-extension://` as an embedding origin outright, so the Watch tab embeds *this* page instead of YouTube directly, and this page embeds the actual YouTube iframe and relays `postMessage` traffic both ways. `dashboard.js`'s `PLAYER_ORIGIN`/`PLAYER_PAGE` constants point at it.
+4. **`src/knowledge/`** (bundled to `dist/knowledge.bundle.js`) — the Notes tab: Tiptap-based note editor with `#tag` autocomplete (using Tiptap's own Suggestion/Mention utilities), a real Tag entity in `chrome.storage.local` (`knowledgeTags`/`knowledgeNotes` keys — deliberately separate from the per-video `notes` store used by Watch), and a Graphology/Sigma.js knowledge graph (global/tag-focused/note-focused modes). See `CONTEXT.md`'s v2.6.0 entry for the full design and what's been verified vs. not.
 
 **No build tooling anywhere in the dependency chain** — this is deliberate, not incomplete:
 - **UI components**: Shoelace, vendored at `vendor/shoelace/` (pulled from its npm tarball directly, not a CDN — MV3's default CSP blocks remote scripts in extension pages). Loaded via its autoloader, which lazy-registers only the `<sl-*>` tags actually used. **The autoloader's `<script src="...">` in `dashboard.html` must be root-relative (`/vendor/...`)** — a plain relative path breaks its internal dynamic `import()` calls with zero console output (see `CONTEXT.md`'s v1.5.1 entry for the exact mechanism). Before writing any `::part()` override, check `vendor/shoelace/chunks/*.js` for how that part actually renders — several (the tab indicator among them) don't work the way a plain styled `<div>` would, and guessing has cost real time more than once (see the v2.0.1/v2.0.2/v2.2.0 entries).
